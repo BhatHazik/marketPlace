@@ -1,0 +1,6 @@
+.background-OTP {
+    background: linear-gradient(360deg, rgba(0, 108, 84, 0.60), rgba(255, 255, 255, 0)), 
+                url('../../assets/LoginBackground.png');
+    background-size: cover;
+    background-position: center;
+}

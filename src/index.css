@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+:root {
+    --navbar-height: 64px; /* Default, updated dynamically */
+  }
+  
+  .main-content {
+    padding-top: var(--navbar-height);
+    
+  }
+  
+body {
+    overflow-x: hidden;
+}
+
+
+.app-bg-green{
+    background-color: #006C54;
+}
+.app-text-green{
+    color: #006C54;
+}

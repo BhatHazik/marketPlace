@@ -1,0 +1,24 @@
+.wrapper-postAd {
+    background: linear-gradient(to bottom, #ffffff 0%, #ffffff 5%, #006C54 100%);
+  }
+  
+/* Add this CSS class to hide scrollbars while maintaining scroll functionality */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+/* Ensure smooth transitions for accordion */
+.wrapper-postAd .heroui-accordion-item-content {
+  transition: all 0.3s ease-in-out;
+}
+
+/* Override any potential scrollbar styles */
+.wrapper-postAd .heroui-accordion {
+  overflow: hidden !important;
+}
+  
