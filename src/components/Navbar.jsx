@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Avatar, AvatarIcon, Button, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/react";
 import olxLogo from "../assets/olx_logo.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlus, faBars, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faPlus, faBars, faXmark, faMessage, faInbox } from "@fortawesome/free-solid-svg-icons";
 
 const Navbar = () => {
   const [isSticky, setIsSticky] = useState(false);
@@ -220,23 +220,37 @@ const Navbar = () => {
                 <FontAwesomeIcon icon={faPlus} className="text-md font-md" />
                 <p className="pe-3 font-md text-md">Sell</p>
               </Button>
-              {token && (
-                <Dropdown>
-                  <DropdownTrigger>
-                    <Avatar
-                      isBordered
-                      radius="lg"
-                      className="cursor-pointer h-10 w-10"
-                      classNames={{
-                        base: "bg-gradient-to-br from-[#FFFFFF] to-[#FFFFFF]",
-                        icon: "app-text-green",
-                      }}
-                      icon={<AvatarIcon />}
-                    />
-                  </DropdownTrigger>
-                  <DropdownMenu aria-label="Profile Actions">
-                    <DropdownItem key="profile" textValue="My Profile"> <Link to="/user-profile/1">My Profile</Link></DropdownItem>
-                    <DropdownItem key="settings" textValue="Settings">Settings</DropdownItem>
+              {token && ( 
+                <>
+                  <Link to="/messages">
+                  <Avatar
+                        onPress={() => navigate("/messages")}
+                        isBordered
+                        radius="lg"
+                        className="cursor-pointer h-10 w-10 bg-[#CFE9DC]"
+                        // classNames={{
+                        //   base: "bg-gradient-to-br from-[#FFFFFF] to-[#FFFFFF]",
+                        //   icon: "app-text-green",
+                        // }}
+                        icon={<FontAwesomeIcon icon={faInbox} className="text-[#006C54] text-xl font-md" />}
+                      />
+                  </Link>
+                  <Dropdown>
+                    <DropdownTrigger>
+                      <Avatar
+                        isBordered
+                        radius="lg"
+                        className="cursor-pointer h-10 w-10"
+                        classNames={{
+                          base: "bg-gradient-to-br from-[#FFFFFF] to-[#FFFFFF]",
+                          icon: "app-text-green",
+                        }}
+                        icon={<AvatarIcon />}
+                      />
+                    </DropdownTrigger>
+                    <DropdownMenu aria-label="Profile Actions">
+                    <DropdownItem key="profile" textValue="My Profile"> <Link className="w-full h-full flex items-center justify-start" to="/user-profile/1">My Profile</Link></DropdownItem>
+                    <DropdownItem key="settings" textValue="Settings"> <Link className="w-full h-full flex items-center justify-start" to="/settings">Settings</Link></DropdownItem>
                     <DropdownItem key="my_ads" textValue="My Ads">My Ads</DropdownItem>
                     <DropdownItem key="saved" textValue="Saved">Saved Items</DropdownItem>
                     <DropdownItem 
@@ -250,13 +264,14 @@ const Navbar = () => {
                     >
                       Logout
                     </DropdownItem>
-                  </DropdownMenu>
-                </Dropdown>
+                    </DropdownMenu>
+                  </Dropdown>
+                </>
               )}
             </div>
 
             {/* Mobile Buttons */}
-            <div className="md:hidden flex items-center gap-2">
+            <div className="md:hidden flex items-center gap-3">
               {!token && (
                 <Button
                   onPress={() => navigate("/login")}
@@ -278,23 +293,37 @@ const Navbar = () => {
                 <p className="pe-2">Sell</p>
               </Button>
               {token && (
-                <Dropdown>
-                  <DropdownTrigger>
-                    <Avatar
-                      isBordered
-                      radius="lg"
-                      size="sm"
-                      className="cursor-pointer h-8 w-8"
-                      classNames={{
-                        base: "bg-gradient-to-br from-[#FFFFFF] to-[#FFFFFF]",
-                        icon: "app-text-green",
-                      }}
-                      icon={<AvatarIcon />}
-                    />
-                  </DropdownTrigger>
-                  <DropdownMenu aria-label="Profile Actions">
-                    <DropdownItem key="profile" textValue="My Profile"> <Link to="/user-profile/1">My Profile</Link></DropdownItem>
-                    <DropdownItem key="settings" textValue="Settings">Settings</DropdownItem>
+                <>
+                <Link to="/messages">
+                  <Avatar
+                        isBordered
+                        radius="lg"
+                        size="sm"
+                        className="cursor-pointer h-8 w-8 bg-[#CFE9DC]"
+                        // classNames={{
+                        //   base: "bg-gradient-to-br from-[#FFFFFF] to-[#FFFFFF]",
+                        //   icon: "app-text-green",
+                        // }}
+                        icon={<FontAwesomeIcon icon={faInbox} className="text-[#006C54] text-xl font-md" />}
+                      />
+                  </Link>
+                  <Dropdown>
+                    <DropdownTrigger>
+                      <Avatar
+                        isBordered
+                        radius="lg"
+                        size="sm"
+                        className="cursor-pointer h-8 w-8"
+                        classNames={{
+                          base: "bg-gradient-to-br from-[#FFFFFF] to-[#FFFFFF]",
+                          icon: "app-text-green",
+                        }}
+                        icon={<AvatarIcon />}
+                      />
+                    </DropdownTrigger>
+                    <DropdownMenu aria-label="Profile Actions">
+                    <DropdownItem key="profile" textValue="My Profile"> <Link className="w-full h-full flex items-center justify-start" to="/user-profile/1">My Profile</Link></DropdownItem>
+                    <DropdownItem key="settings" textValue="Settings"> <Link className="w-full h-full flex items-center justify-start" to="/settings">Settings</Link></DropdownItem>
                     <DropdownItem key="my_ads" textValue="My Ads">My Ads</DropdownItem>
                     <DropdownItem key="saved" textValue="Saved">Saved Items</DropdownItem>
                     <DropdownItem 
@@ -308,8 +337,9 @@ const Navbar = () => {
                     >
                       Logout
                     </DropdownItem>
-                  </DropdownMenu>
-                </Dropdown>
+                    </DropdownMenu>
+                  </Dropdown>
+                </>
               )}
             </div>
           </div>

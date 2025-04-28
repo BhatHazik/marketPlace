@@ -1,0 +1,35 @@
+/* Fixes for HeroUI and Flowbite conflicts */
+
+/* Fix for double inputs */
+.heroui-input-base-input {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+}
+
+/* Remove default browser styling for inputs */
+input.heroui-input-base-input {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+/* Ensure HeroUI styles take precedence over Flowbite */
+.heroui-input-wrapper {
+  z-index: 2;
+  position: relative;
+}
+
+/* Fix for bordered inputs */
+.heroui-input[data-variant="bordered"] .heroui-input-base-input {
+  border: none !important;
+}
+
+/* Additional fixes for specific input variants */
+.heroui-input[data-variant="flat"] .heroui-input-base-input,
+.heroui-input[data-variant="faded"] .heroui-input-base-input,
+.heroui-input[data-variant="underlined"] .heroui-input-base-input {
+  border: none !important;
+  background: transparent !important;
+} 

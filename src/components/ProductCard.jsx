@@ -2,7 +2,7 @@ import { Card, Image, Button, Badge } from "@heroui/react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faHeart, faLocationDot } from "@fortawesome/free-solid-svg-icons";
 import { useState } from "react";
-
+import defaultImage from "../assets/placeholder-image.jpg";
 
 export const HeartIcon = ({fill = "#FF0000", filled, size, height, width, ...props}) => {
   return (
@@ -47,12 +47,13 @@ const ProductCard = ({
     >
       <div className="relative w-full h-48 overflow-hidden">
         <Image
-          src={imageError ? fallbackImage : image}
+          src={imageError ? fallbackImage : defaultImage}
           alt={title}
           className="w-full h-48 object-cover"
           style={{ display: "block" }}
           radius="none"
           removeWrapper
+          
           onError={() => setImageError(true)}
           loading="lazy"
         />

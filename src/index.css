@@ -11,9 +11,26 @@
     padding-top: var(--navbar-height);
     
   }
+
+  /* Scrollbar styling */
+.category-scrollbar::-webkit-scrollbar {
+  width: 2px;
+  height: 3px;
+}
+
+.category-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #000000; /* Tailwind blue-500 */
+  border-radius: 10px;
+}
+
+.category-scrollbar::-webkit-scrollbar-track {
+  background: #e5e7eb; /* Tailwind gray-200 */
+}
+
   
 body {
     overflow-x: hidden;
+    /* overflow-y: hidden; */
 }
 
 

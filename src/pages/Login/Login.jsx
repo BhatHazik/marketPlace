@@ -8,7 +8,7 @@ import Google from "../../assets/google.png";
 import { faFacebook } from "@fortawesome/free-brands-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import olxLogo from "../../assets/olx_logo.png";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import UseAPI from "../../hooks/UseAPI";
 import { toast } from "react-toastify";
@@ -40,7 +40,7 @@ const Login = () => {
       <div className="relative">
         <div className="absolute background-login inset-0 bg-cover bg-center opacity-50"></div>
         <div className="absolute top-8 left-8">
-          <img src={olxLogo} alt="Logo" className="w-20 h-auto" />
+          <Link to="/"><img src={olxLogo} alt="Logo" className="w-20 h-auto" /></Link>
         </div>
         <div className=" flex min-h-screen items-center justify-center bg-cover bg-center py-12 px-4 sm:px-6 lg:px-8">
           <Card className="max-w-md w-full space-y-8 p-6 shadow-xl">

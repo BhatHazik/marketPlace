@@ -36,8 +36,9 @@ const OTP = () => {
       // Store token in localStorage as backup
       localStorage.setItem("token", response.token);
       localStorage.setItem("userCountry", country);
+      localStorage.setItem("userId", response.user.id);
       
-      toast.success(response.message)
+      toast.success(response.message);
       return navigate("/");
     }
     return;

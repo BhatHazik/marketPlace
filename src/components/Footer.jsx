@@ -45,9 +45,9 @@ const Footer = () => {
               <h3 className="text-sm font-bold uppercase mb-4">ABOUT US</h3>
               <ul className="space-y-2">
                 <li><Link to="/" className="text-sm text-gray-600 hover:text-gray-900">Tech@olx</Link></li>
-                <li><Link to="/" className="text-sm text-gray-600 hover:text-gray-900">Help</Link></li>
-                <li><Link to="/" className="text-sm text-gray-600 hover:text-gray-900">Sitemap</Link></li>
-                <li><Link to="/" className="text-sm text-gray-600 hover:text-gray-900">Legal & Privacy Information</Link></li>
+                <li><Link to="/help" className="text-sm text-gray-600 hover:text-gray-900">Help</Link></li>
+                <li><Link to="/about" className="text-sm text-gray-600 hover:text-gray-900">Sitemap</Link></li>
+                <li><Link to="/privacy" className="text-sm text-gray-600 hover:text-gray-900">Legal & Privacy Information</Link></li>
                 <li><Link to="/" className="text-sm text-gray-600 hover:text-gray-900">Vulnerability Disclosure Program</Link></li>
               </ul>
             </div>
@@ -58,7 +58,8 @@ const Footer = () => {
               <ul className="space-y-2">
                 <li><Link to="/" className="text-sm text-gray-600 hover:text-gray-900">Blog</Link></li>
                 <li><Link to="/" className="text-sm text-gray-600 hover:text-gray-900">Help</Link></li>
-                <li><Link to="/" className="text-sm text-gray-600 hover:text-gray-900">Sitemap</Link></li>
+                <li><Link to="/about" className="text-sm text-gray-600 hover:text-gray-900">Sitemap</Link></li>
+                <li><Link to="/terms" className="text-sm text-gray-600 hover:text-gray-900">Terms and Conditions</Link></li>
               </ul>
             </div>
 

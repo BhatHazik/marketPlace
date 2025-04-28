@@ -3,9 +3,17 @@ import { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSearch, faChevronDown } from "@fortawesome/free-solid-svg-icons";
 
-const SearchBar = () => {
+const SearchBar = ({ className = "", containerClassName = "", width }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [location, setLocation] = useState("srinagar");
+
+  // Generate dynamic width style
+  const getWidthStyle = () => {
+    if (width) {
+      return { width };
+    }
+    return {};
+  };
 
   const locations = [
     { key: "all", label: "All India" },
@@ -24,9 +32,12 @@ const SearchBar = () => {
   };
 
   return (
-    <div className="w-full flex justify-center px-4 sm:px-0">
+    <div className={` flex px-4 sm:px-0 ${containerClassName}`}>
       {/* Desktop Version - Horizontal layout */}
-      <div className="hidden md:flex w-full max-w-[600px] lg:w-[45%] items-center bg-white rounded-full shadow overflow-hidden border border-[#006C54]">
+      <div 
+        className={`hidden md:flex items-center bg-white rounded-full shadow overflow-hidden border border-[#006C54] ${className}`}
+        style={getWidthStyle()}
+      >
         {/* Search Input Side */}
         <div className="flex-grow flex items-center pe-2">
           <div className="pl-5">
@@ -41,8 +52,9 @@ const SearchBar = () => {
             placeholder="Search to buy"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full h-full pl-2 border-0 shadow-none focus:ring-0 text-base"
+            className="w-full h-full pl-2 border-0 shadow-none focus:ring-0 text-base "
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            
           />
         </div>
         
@@ -79,7 +91,7 @@ const SearchBar = () => {
       </div>
 
       {/* Mobile Version - Vertical layout */}
-      <div className="md:hidden flex flex-col w-full max-w-[400px] gap-2">
+      <div className="md:hidden flex flex-col w-full max-w-[400px] gap-2" style={getWidthStyle()}>
         {/* Search Input with icon */}
         <div className="flex items-center bg-white rounded-2xl shadow border border-[#006C54] overflow-hidden py-1 pe-1">
           <div className="pl-4">

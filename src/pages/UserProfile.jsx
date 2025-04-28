@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import UseAPI from "../hooks/UseAPI";
 import { Avatar, Button, Card, Divider, Tabs, Tab, Pagination, CardBody, CardHeader, CardFooter, User } from "@heroui/react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { 
@@ -17,26 +18,21 @@ import {
 } from "@fortawesome/free-brands-svg-icons";
 import PostAdSection from "../components/PostAdSection";
 import ProductCard from "../components/ProductCard";
+import { useNavigate } from "react-router-dom";
 
 const UserProfile = () => {
-  // This would typically come from an API or context
-  const user = {
-    id: 1,
-    name: "Bisma",
-    avatar: "https://images.pexels.com/photos/839586/pexels-photo-839586.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2",
-    isOnline: true,
-    joinDate: "June 2021",
-    soldCount: 42,
-    totalListings: 56,
-    socialLinks: {
-      facebook: "https://facebook.com/johndoe",
-      twitter: "https://twitter.com/johndoe",
-      instagram: "https://instagram.com/johndoe"
-    }
-  };
+  const { requestAPI, loading } = UseAPI();
+  const navigate = useNavigate();
   
-  // Sample listings data
-  const listings = [
+  // State for user data and listings
+  const [userData, setUserData] = useState({
+    name: "User",
+    is_verified: false,
+    total_products: 0,
+    sold_products: 0
+  });
+  
+  const [listings, setListings] = useState([
     {
       id: 1,
       title: "Honda Civic 2022 - Perfect Condition",
@@ -203,7 +199,43 @@ const UserProfile = () => {
       date: "Apr 09",
       status: "active"
     }
-  ];
+  ]);
+
+
+  const handleMessageClick = async (receiverId) => {
+    const chatId = await requestAPI('POST', `/chats/create`, { receiverId }, { showErrorToast: false });
+    console.log(chatId)
+    if (chatId && chatId.chat && chatId.chat.id) {
+      console.log(chatId.chat.id)
+      navigate(`/messages/${chatId.chat.id}`);
+    }
+  };
+  
+  // Fetch user profile and listings data
+  useEffect(() => {
+    const fetchUserProfileData = async () => {
+      const response = await requestAPI('GET', '/users/listing');
+      if (response && response.status === "success") {
+        setUserData(response.data.userDetails);
+        
+        // Transform API response to match our existing structure
+        const transformedListings = response.data.listings.map(item => ({
+          id: item.id,
+          title: item.productValues.Title || "Untitled",
+          price: item.productValues.Price || 0,
+          image: item.productValues.Image || "https://via.placeholder.com/300",
+          location: item.productLocation ? `${item.productLocation.city}, ${item.productLocation.country}` : "Unknown",
+          date: new Date(item.createdAt || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          status: item.status || "pending",
+          featured: item.is_sponsored || false
+        }));
+        
+        setListings(transformedListings);
+      }
+    };
+    
+    fetchUserProfileData();
+  }, []);
 
   const [selectedTab, setSelectedTab] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -317,26 +349,26 @@ const UserProfile = () => {
               <div className="relative">
                 <div className="absolute inset-0 bg-[#006035] blur-3xl rounded-full"></div>
                 <Avatar 
-                  src={user.avatar}
+                  src={userData.avatar}
                   size="lg" 
                   className="w-40 h-40 sm:w-48 sm:h-48 md:w-64 md:h-64 text-large rounded-full relative z-10"
-                  alt={user.name}
+                  alt={userData.name}
                 />
               </div>
             </div>
             
             {/* Middle - User Info and Action Buttons */}
             <div className="w-full md:w-2/5 flex flex-col space-y-6 mt-4 md:mt-0">
-              <h1 className="text-2xl font-bold text-white">{user.name}</h1>
+              <h1 className="text-2xl font-bold text-white">{userData.name}</h1>
               
               <div className="flex items-center gap-4">
                 <span className="flex items-center text-gray-200">
-                  <FontAwesomeIcon icon={faCheckCircle} className="text-green-500 mr-2" />
-                  Active Member
+                  <FontAwesomeIcon icon={faCheckCircle} className={`${userData.is_verified ? "text-green-500" : "text-gray-500"} mr-2`} />
+                  {userData.is_verified ? "Verified User" : "Unverified User"}
                 </span>
                 <div className="flex items-center">
-                <div className={`w-3 h-3 rounded-full mr-2 ${user.isOnline ? "bg-green-500" : "bg-red-500"}`}></div>
-                <span className="text-gray-200">{user.isOnline ? "Online" : "Offline"}</span>
+                <div className="w-3 h-3 rounded-full mr-2 bg-green-500"></div>
+                <span className="text-gray-200">Online</span>
               </div>
               </div>
               
@@ -346,7 +378,7 @@ const UserProfile = () => {
                 <Button     
                   className="bg-[#006C54] text-white hover:bg-[#005743] m-0"
                   startContent={<FontAwesomeIcon icon={faMessage} />}
-                  
+                  onPress={() => handleMessageClick(47)}
                 >
                   Message
                 </Button>
@@ -354,7 +386,6 @@ const UserProfile = () => {
                 <Button 
                   className="bg-white text-green-500"
                   startContent={<FontAwesomeIcon icon={faWhatsapp} className="font-bold text-xl"/>}
-                  
                 >
                   WhatsApp
                 </Button>
@@ -366,11 +397,11 @@ const UserProfile = () => {
               {/* Stats Section */}
               <div className="flex justify-center items-center w-full">
                 <div className="flex flex-col items-center justify-center mx-4">
-                  <p className="text-gray-200 text-xl text-center">{user.soldCount}</p>
+                  <p className="text-gray-200 text-xl text-center">{userData.sold_products}</p>
                   <h3 className="text-white font-bold text-sm mt-1 text-center">Sold</h3>
                 </div>
                 <div className="flex flex-col items-center justify-center mx-4">
-                  <p className="text-gray-200 text-xl text-center">{user.totalListings}</p>
+                  <p className="text-gray-200 text-xl text-center">{userData.total_products}</p>
                   <h3 className="text-white font-bold text-sm mt-1 text-center">Listings</h3>
                 </div>
                 <div className="flex flex-col items-center justify-center mx-4">
@@ -387,7 +418,7 @@ const UserProfile = () => {
                   </div>
                   <div className="flex items-center text-gray-200 ">
                     <FontAwesomeIcon icon={faLocationDot} className="mr-1" />
-                    <span className="text-sm font-light">Mumbai</span>
+                    <span className="text-sm font-light">{userData.location}</span>
                   </div>
                 </div>
               </div>
@@ -405,7 +436,7 @@ const UserProfile = () => {
       <div id="listings-section" className="py-8 bg-white">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row md:items-center gap-3 mb-6">
-            <h2 className="text-3xl font-semibold text-gray-800 mb-4 md:mb-0">{user.name}'s Listings</h2>
+            <h2 className="text-3xl font-semibold text-gray-800 mb-4 md:mb-0">{userData.name}'s Listings</h2>
             
             <Tabs 
               selectedKey={selectedTab}
@@ -425,6 +456,7 @@ const UserProfile = () => {
               <Tab key="sponsored" title="Sponsored" />
               <Tab key="sold" title="Sold" />
               <Tab key="rejected" title="Rejected" />
+              <Tab key="pending" title="Pending" />
             </Tabs>
           </div>
           
@@ -481,7 +513,7 @@ const UserProfile = () => {
             <div>
             
             <h6 className="font-semibold">What people say about us</h6>
-            <h2 className="font-semibold text-4xl">Haziq</h2>
+            <h2 className="font-semibold text-4xl">{userData.name}</h2>
             </div>
               <div className="flex gap-4">
                 <Button 

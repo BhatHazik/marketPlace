@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -15,18 +15,21 @@
     "@fortawesome/free-regular-svg-icons": "^6.7.2",
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
     "@fortawesome/react-fontawesome": "^0.2.2",
-    "@heroui/react": "^2.7.5",
+    "@heroui/react": "^2.7.6",
     "@heroui/select": "^2.4.16",
     "@heroui/system": "^2.4.12",
     "@heroui/theme": "^2.4.12",
     "@heroui/use-theme": "^2.1.6",
     "@lottiefiles/dotlottie-react": "^0.13.3",
     "axios": "^1.8.4",
+    "flowbite": "^3.1.2",
+    "flowbite-react": "^0.11.7",
     "framer-motion": "^12.6.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.4.0",
-    "react-toastify": "^11.0.5"
+    "react-toastify": "^11.0.5",
+    "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",

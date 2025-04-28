@@ -44,7 +44,7 @@ const Hero = () => {
           </div>
           
           {/* Search Bar */}
-          <SearchBar />
+          <SearchBar className="max-w-[600px] lg:w-[75%]" containerClassName="justify-center w-full"/>
         </div>
       </div>
       

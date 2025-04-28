@@ -23,6 +23,9 @@ import { faCamera, faInfoCircle } from "@fortawesome/free-solid-svg-icons";
 import UseAPI from "../../hooks/UseAPI";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import LoadingModal from "../../Modals/LoadingModal";
+import FeaturedModal from "../../Modals/FeaturedModal";
+import axios from "axios";
+import BASE_URL from "../../config/url.config";
 
 const PostAdForm = () => {
   const { requestAPI, loading: apiLoading, error } = UseAPI();
@@ -54,6 +57,8 @@ const PostAdForm = () => {
   const [showLoadingModal, setShowLoadingModal] = useState(false);
   const [createdAdId, setCreatedAdId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFeaturedModal , setIsFeaturedModal] = useState(false);
+
 
   const { state } = useLocation();
   const { subcat, category } = state || {};
@@ -191,8 +196,6 @@ const PostAdForm = () => {
         : [dynamicValues[attributeId]]
     }));
     
-    // Get file names from imageFiles
-    const photoNames = imageFiles.map(file => file.name);
     
     // Find state and city names from their IDs
     const selectedState = stateData.find(state => state.id.toString() === formData.state);
@@ -200,7 +203,6 @@ const PostAdForm = () => {
     
     const requestData = {
       subcategory_id: subcat?.id.toString(),
-      photos: photoNames,
       attributes: formattedAttributes,
       normalDetails: {
         price: parseFloat(formData.price),
@@ -213,20 +215,32 @@ const PostAdForm = () => {
         city: selectedCity?.name || ""
       }
     };
-    
+    const formDataToSend = new FormData();
+    formDataToSend.append("data", JSON.stringify(requestData));
+
+    // Append each image
+    imageFiles.forEach(file => {
+      formDataToSend.append("photos", file);
+    });
     console.log("Form data to submit:", requestData);
     
     // Show loading modal
     setIsSubmitting(true);
     setShowLoadingModal(true);
+    const token = localStorage.getItem('token');
     
     try {
-      // Send the data to the backend
-      const response = await requestAPI('POST', '/listings', requestData);
-        
-      if (response.status === "success") {
-        console.log("Listing created successfully:", response);
-        setCreatedAdId(response.data?.id || null);
+      // Send the data to the backend using axios instead of requestAPI
+      const response = await axios.post(`${BASE_URL}/listings`, formDataToSend, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+        console.log(response);
+      if (response.data.status === "success") {
+        console.log("Listing created successfully:", response.data);
+        setCreatedAdId(response.data.data?.id || null);
         
         // Reset all form data
         resetFormData();
@@ -237,6 +251,7 @@ const PostAdForm = () => {
       } else {
         // Hide loading modal on error
         setShowLoadingModal(false);
+        alert(response.data.message || "Error creating listing");
       }
     } catch (error) {
       console.error("Error submitting form:", error);
@@ -288,9 +303,8 @@ const PostAdForm = () => {
 
   // Handle sell faster button click
   const handleSellFaster = () => {
-    if (createdAdId) {
-      navigate(`/promote-ad/${createdAdId}`);
-    }
+      setIsFeaturedModal(true)
+    
     setShowSuccessModal(false);
   };
 
@@ -615,6 +629,11 @@ const PostAdForm = () => {
         </div>
       </form>
 
+      <FeaturedModal
+      isOpen={isFeaturedModal}
+      onClose={()=>setIsFeaturedModal(false)}
+      />
+
       {/* Reusable Loading Modal */}
       <LoadingModal
         isOpen={apiLoading}
@@ -687,7 +706,7 @@ const PostAdForm = () => {
           <ModalFooter className="flex flex-col items-center">
             <div className="flex gap-3 w-full mb-4">
               <Button 
-                onClick={handleSellFaster} 
+                onPress={handleSellFaster} 
                 className="bg-[#006C54] text-white hover:bg-[#005743] flex-1"
               >
                 Sell Faster Now

@@ -31,6 +31,7 @@ const PhoneInput = ({
   countryValue,
   onCountryChange,
   required = true,
+  inputClassName = "",
 }) => {
   const [selectedCountry, setSelectedCountry] = useState(
     countries.find((c) => c.code === countryValue) || countries[0]
@@ -76,7 +77,7 @@ const PhoneInput = ({
 
       {/* Phone Input */}
       <Input
-        className="flex-grow rounded-end"
+        className={`${inputClassName}`}
         type="tel"
         placeholder="Enter phone number"
         value={phoneValue} // Ensure phoneValue is always a string
