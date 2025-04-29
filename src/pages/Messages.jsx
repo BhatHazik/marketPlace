@@ -1063,7 +1063,11 @@ const Messages = () => {
             id: messageData.id || `socket-${Date.now()}`,
             sender: isSentByMe ? 'me' : 'them',
             text: messageData.content,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            // Use the sent timestamp from the message data or current time
+            rawSentAt: messageData.sentAt || new Date().toISOString(),
+            timestamp: messageData.sentAt ? 
+              new Date(messageData.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) :
+              new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             isSent: true,
             isDelivered: false,
             isSeen: false,
@@ -1103,12 +1107,19 @@ const Messages = () => {
             );
             
             if (!isDuplicate) {
-              // Add the new message to the list
+              // Add the new message to the list and ensure proper timestamp order
               const newMessageList = [...prevMessages, formattedMessage];
               
-                            // Apply the image grouping function to merge sequential images
+              // Sort messages by timestamp to ensure proper chronological order
+              const sortedMessages = newMessageList.sort((a, b) => {
+                const timeA = a.rawSentAt ? new Date(a.rawSentAt).getTime() : new Date(a.timestamp).getTime();
+                const timeB = b.rawSentAt ? new Date(b.rawSentAt).getTime() : new Date(b.timestamp).getTime();
+                return timeA - timeB;
+              });
+              
+              // Apply the image grouping function to merge sequential images
               // This will automatically group images if they are sent in sequence
-              const groupedMessages = groupSequentialImages(newMessageList);
+              const groupedMessages = groupSequentialImages(sortedMessages);
               
               // Log the result of grouping for debugging
               console.log('Grouped messages after new message:', 
@@ -1655,8 +1666,20 @@ const Messages = () => {
         }));
       }
       
-      // Add the temporary message to the UI
-      setMessages(prevMessages => [...prevMessages, tempMsg]);
+      // Add the temporary message to the UI and sort all messages
+      setMessages(prevMessages => {
+        // Add the new message to the list
+        const newMessageList = [...prevMessages, tempMsg];
+        
+        // Sort messages by timestamp to ensure proper chronological order
+        const sortedMessages = newMessageList.sort((a, b) => {
+          const timeA = a.rawSentAt ? new Date(a.rawSentAt).getTime() : new Date(a.timestamp).getTime();
+          const timeB = b.rawSentAt ? new Date(b.rawSentAt).getTime() : new Date(b.timestamp).getTime();
+          return timeA - timeB;
+        });
+        
+        return sortedMessages;
+      });
       
       // Store original message content before clearing input
       const messageContent = newMessage;
@@ -1963,7 +1986,7 @@ const Messages = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold mb-2">Your Messages</h3>
+              <h3 className="text-xl font-bold mb-2">Your Messages</h3>
               <p className="text-gray-500 mb-4">Select a chat to start messaging</p>
             </CardBody>
           </Card>
@@ -1991,7 +2014,12 @@ const Messages = () => {
               <>
                 <Avatar src={DEFAULT_AVATAR} className="h-10 w-10" />
                 <div className="ml-3">
-                  <p className="font-semibold">{currentChat.user.name}</p>
+                  <div className="flex items-center">
+                    <p className="font-semibold">{currentChat.user.name}</p>
+                    <span className="ml-1 text-[10px] text-gray-500 bg-gray-100 rounded-full px-1.5 py-0.5">
+                      #{currentChat.user.id || 'unknown'}
+                    </span>
+                  </div>
                   <p className="text-xs flex items-center gap-1">
                     {currentChat.user.isOnline ? (
                       <>
@@ -2131,7 +2159,7 @@ const Messages = () => {
                                             />
                                           </div>
                                           <div className="flex-1 min-w-0 mr-2">
-                                            <p className="text-sm truncate">
+                                            <p className="text-sm font-medium truncate">
                                               {item.originalFileName || `File ${index + 1}`}
                                             </p>
                                             <p className="text-xs opacity-70">
@@ -2546,7 +2574,12 @@ const Messages = () => {
                       <div className="ml-3 flex-1 min-w-0">
                         <div className="flex justify-between items-start">
                           <div>
-                            <p className="font-semibold truncate">{chat.user?.name || 'Unknown User'}</p>
+                            <div className="flex items-center">
+                              <p className="font-semibold truncate">{chat.user?.name || 'Unknown User'}</p>
+                              <span className="ml-1 text-[10px] text-gray-500 bg-gray-100 rounded-full px-1.5 py-0.5">
+                                #{chat.user?.id || 'unknown'}
+                              </span>
+                            </div>
                             {!chat.user?.isOnline && chat.user?.lastSeen && (
                               <p className="text-xs text-gray-500 -mt-0.5">
                                 Last seen: {formatLastSeen(chat.user.lastSeen)}

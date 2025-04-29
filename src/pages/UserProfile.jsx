@@ -378,7 +378,7 @@ const UserProfile = () => {
                 <Button     
                   className="bg-[#006C54] text-white hover:bg-[#005743] m-0"
                   startContent={<FontAwesomeIcon icon={faMessage} />}
-                  onPress={() => handleMessageClick(47)}
+                  onPress={() => handleMessageClick(49)}
                 >
                   Message
                 </Button>
