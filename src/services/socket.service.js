@@ -3,6 +3,12 @@ import BASE_URL from '../config/url.config';
 
 let socket = null;
 
+// Maintain a global cache of user statuses
+let userStatuses = {};
+
+// Create a map of status listeners
+const statusListeners = new Map();
+
 const connectSocket = (token) => {
   if (!socket) {
     socket = io(`${BASE_URL}?token=${token}`, {
@@ -10,8 +16,44 @@ const connectSocket = (token) => {
       reconnection: true,
       reconnectionAttempts: 5
     });
+    
+    // Set up global listeners as soon as the socket is created
+    setupGlobalListeners();
   }
   return socket;
+};
+
+// Set up global listeners that persist throughout the app
+const setupGlobalListeners = () => {
+  if (!socket) return;
+  
+  // Global user status change listener
+  socket.off('user_status_change'); // Remove any existing listener first
+  socket.on('user_status_change', (statusData) => {
+    console.log('Global user status change received:', statusData);
+    
+    if (statusData && statusData.userId) {
+      // Update our global cache of user statuses
+      userStatuses[statusData.userId] = {
+        isOnline: statusData.isOnline,
+        lastSeen: statusData.lastSeen
+      };
+      
+      // Notify all listeners of this update
+      notifyStatusListeners(statusData);
+    }
+  });
+};
+
+// Notify all registered status listeners
+const notifyStatusListeners = (statusData) => {
+  statusListeners.forEach((callback) => {
+    try {
+      callback(statusData);
+    } catch (err) {
+      console.error('Error notifying status listener:', err);
+    }
+  });
 };
 
 const disconnectSocket = () => {
@@ -151,6 +193,45 @@ const emitMessageSeen = (messageId) => {
   }
 };
 
+// Register a component to receive user status updates
+const onUserStatusChange = (callback, listenerId = null) => {
+  // Generate a unique ID for this listener if not provided
+  const id = listenerId || `listener_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  // Store the callback in our listeners map
+  statusListeners.set(id, callback);
+  
+  console.log(`Registered status listener with ID: ${id}, total listeners: ${statusListeners.size}`);
+  
+  // Return the ID so the component can remove this listener later
+  return id;
+};
+
+// Remove a specific user status listener
+const offUserStatusChange = (listenerId) => {
+  if (statusListeners.has(listenerId)) {
+    statusListeners.delete(listenerId);
+    console.log(`Removed status listener with ID: ${listenerId}, remaining listeners: ${statusListeners.size}`);
+    return true;
+  }
+  return false;
+};
+
+// Get the current status of a specific user
+const getUserStatus = (userId) => {
+  return userStatuses[userId] || { isOnline: false, lastSeen: null };
+};
+
+// Get all user statuses
+const getAllUserStatuses = () => {
+  return { ...userStatuses };
+};
+
+// Get the current socket instance (or null if not connected)
+const getSocket = () => {
+  return socket;
+};
+
 // Export as a single object to maintain compatibility with existing code
 export const SocketService = {
   connectSocket,
@@ -161,5 +242,10 @@ export const SocketService = {
   onMessageSeen,
   emitPrivateMessage,
   emitMessageSeen,
+  onUserStatusChange,
+  offUserStatusChange,
+  getUserStatus,
+  getAllUserStatuses,
+  getSocket,
   isConnected: () => socket !== null && socket.connected
 };

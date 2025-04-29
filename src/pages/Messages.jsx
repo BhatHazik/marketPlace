@@ -11,10 +11,15 @@ import {
   faSearch, faPaperPlane, faEllipsisV, faImage, 
   faVideo, faFile, faMicrophone, faSmile, faChevronLeft,
   faTimes, faDownload, faExclamationTriangle, faPlay, faX,
-  faArrowLeft, faExpand, faCompress, faTimes as faClose, faChevronRight, faChevronLeft as faChevronLeftIcon
+  faArrowLeft, faExpand, faCompress, faTimes as faClose, faChevronRight, faChevronLeft as faChevronLeftIcon,
+  faCircleXmark,
+  faCircle,
+  faCheckDouble,
+  faCheck
 } from '@fortawesome/free-solid-svg-icons';
 import UseApi from '../hooks/UseAPI';
 import { SocketService } from '../services/socket.service';
+import { toast } from 'react-toastify';
 import axios from 'axios';
 import BASE_URL from '../config/url.config';
 
@@ -578,12 +583,86 @@ const Messages = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadError, setUploadError] = useState(null);
+  
+  // User status tracking
+  const [userStatuses, setUserStatuses] = useState({});
+  
   const fileInputRef = useRef(null);
   
   // Debug log for current user ID
   useEffect(() => {
     console.log('Current User ID from localStorage:', currentUserId);
   }, [currentUserId]);
+  
+  // Utility function to format last seen time nicely
+  const formatLastSeen = (lastSeenTime) => {
+    if (!lastSeenTime) return 'Unknown';
+    
+    const lastSeen = new Date(lastSeenTime);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - lastSeen) / 1000);
+    
+    // If less than a minute ago
+    if (diffInSeconds < 60) {
+      return 'Just now';
+    }
+    
+    // If less than an hour ago
+    if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60);
+      return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+    }
+    
+    // If less than a day ago
+    if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600);
+      return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+    }
+    
+    // If within the past week
+    if (diffInSeconds < 604800) { // 7 days
+      const days = Math.floor(diffInSeconds / 86400);
+      return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+    }
+    
+    // Otherwise show the date and time
+    return lastSeen.toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+  
+  // Utility function to format timestamps for the chat list
+  const formatTimeAgo = (date) => {
+    if (!date) return '';
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    // Check if date is today
+    if (date >= today) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    // Check if date was yesterday
+    if (date >= yesterday && date < today) {
+      return 'Yesterday';
+    }
+    
+    // Check if date is within the last week
+    const lastWeek = new Date(today);
+    lastWeek.setDate(lastWeek.getDate() - 6);
+    if (date >= lastWeek) {
+      return date.toLocaleDateString([], { weekday: 'short' });
+    }
+    
+    // Otherwise return the date
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  };
   
   // Debug to check socket connection status
   useEffect(() => {
@@ -653,19 +732,70 @@ const Messages = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [galleryOpen, galleryImages, currentImageIndex, fullscreenMode]);
 
-  // Connect to socket.io when component mounts
+  // Get reference to the existing socket when component mounts
+  // and monitor connection status
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      const socketConnection = SocketService.connectSocket(token);
-      setSocket(socketConnection);
-      setSocketConnected(true);
-      console.log('Socket connected with user ID:', currentUserId);
+      // Instead of creating a new connection, get reference to the existing one
+      // that was created in App.jsx
+      const existingSocket = SocketService.getSocket();
       
+      if (existingSocket) {
+        setSocket(existingSocket);
+        setSocketConnected(existingSocket.connected);
+        console.log('Using existing socket connection with user ID:', currentUserId, 'Connection status:', existingSocket.connected);
+        
+        // Monitor socket connection status
+        const handleConnect = () => {
+          console.log('Socket connected event fired');
+          setSocketConnected(true);
+        };
+        
+        const handleDisconnect = () => {
+          console.log('Socket disconnected event fired');
+          setSocketConnected(false);
+        };
+        
+        // Add connection status listeners
+        existingSocket.on('connect', handleConnect);
+        existingSocket.on('disconnect', handleDisconnect);
+        
+        // If socket is not connected, try to reconnect
+        if (!existingSocket.connected) {
+          console.log('Socket is not connected, attempting to reconnect...');
+          existingSocket.connect();
+        }
+      } else {
+        // If for some reason there's no existing connection, let's create one
+        // This is just a fallback
+        console.log('No existing socket found, creating one');
+        const socketConnection = SocketService.connectSocket(token);
+        setSocket(socketConnection);
+        setSocketConnected(socketConnection.connected);
+        
+        // Monitor new socket connection status
+        socketConnection.on('connect', () => {
+          console.log('New socket connected');
+          setSocketConnected(true);
+        });
+        
+        socketConnection.on('disconnect', () => {
+          console.log('New socket disconnected');
+          setSocketConnected(false);
+        });
+      }
+      
+      // Don't disconnect on component unmount
       return () => {
-        SocketService.disconnectSocket();
+        // Just clean up the reference and listeners in this component
+        if (socket) {
+          socket.off('connect');
+          socket.off('disconnect');
+        }
+        setSocket(null);
         setSocketConnected(false);
-        console.log('Socket disconnected');
+        console.log('Component unmounted, socket reference released');
       };
     }
   }, [currentUserId]);
@@ -736,7 +866,57 @@ const Messages = () => {
     });
   };
 
-  // Listen for socket events
+  // Register for global user status updates
+  useEffect(() => {
+    // Get initial user statuses from the global cache
+    const initialStatuses = SocketService.getAllUserStatuses();
+    setUserStatuses(initialStatuses);
+    
+    // Register a listener for status updates
+    const statusListenerId = SocketService.onUserStatusChange((statusData) => {
+      console.log('User status change received in Messages component:', statusData);
+      
+      if (statusData && statusData.userId) {
+        // Update local state with the new status data
+        setUserStatuses(prevStatuses => ({
+          ...prevStatuses,
+          [statusData.userId]: {
+            isOnline: statusData.isOnline,
+            lastSeen: statusData.lastSeen
+          }
+        }));
+        
+        // If we have chat data loaded, also update the user in the chat list
+        setChatData(prevChatData => {
+          // Find if this user is in our chat list
+          const updatedChatData = prevChatData.map(chat => {
+            // Check if this chat's user matches the status update user ID
+            if (chat.user && String(chat.user.id) === String(statusData.userId)) {
+              // Update the user's online status and last seen time
+              return {
+                ...chat,
+                user: {
+                  ...chat.user,
+                  isOnline: statusData.isOnline,
+                  lastSeen: statusData.lastSeen
+                }
+              };
+            }
+            return chat;
+          });
+          
+          return updatedChatData;
+        });
+      }
+    });
+    
+    // Clean up function to remove our status listener when component unmounts
+    return () => {
+      SocketService.offUserStatusChange(statusListenerId);
+    };
+  }, []);
+  
+  // Listen for socket events (other than user status)
   useEffect(() => {
     // Clean up function to remove previous listeners
     const cleanupSocketListeners = () => {
@@ -1105,7 +1285,7 @@ const Messages = () => {
       setShowMobileChat(false);
     }
   }, [id, isMobile, showMobileChat]);
-  
+
   // Function to fetch messages for a chat
   const fetchMessages = async (chatId) => {
     try {
@@ -1403,8 +1583,29 @@ const Messages = () => {
       textLength: (newMessage || '').length,
       hasMedia: uploadedMedia.length > 0,
       mediaCount: uploadedMedia.length,
-      selectedChat: selectedChat
+      selectedChat: selectedChat,
+      socketConnected: socketConnected,
+      socketExists: !!socket
     });
+    
+    // Make sure the socket is connected before trying to send
+    if (!socketConnected) {
+      console.error('Cannot send message: Socket is not connected!');
+      
+      // Try to reconnect the socket
+      if (socket) {
+        console.log('Attempting to reconnect socket...');
+        socket.connect();
+        
+        // Show error to user
+        toast.error('Connection lost. Reconnecting...', {
+          position: "top-right",
+          autoClose: 3000
+        });
+      }
+      
+      return; // Don't proceed with sending if socket isn't connected
+    }
     
     if ((newMessage.trim() !== '' || uploadedMedia.length > 0) && selectedChat) {
       // Get the selected chat data to determine recipient
@@ -1487,8 +1688,8 @@ const Messages = () => {
       setTimeout(() => scrollToBottom('smooth'), 50);
       
       try {
-        // Only use socket to send message (no API call)
-        if (socketConnected) {
+        // Double check socket is connected before sending
+        if (socketConnected && socket && socket.connected) {
           // Cache the uploaded media before clearing it
           const mediaToSend = [...uploadedMedia];
           
@@ -1498,6 +1699,12 @@ const Messages = () => {
           // First, check if we need to send both text and media
           const hasText = messageContent && messageContent.trim() !== '';
           const hasMedia = mediaToSend.length > 0;
+          
+          console.log('Socket status before sending:', {
+            socketExists: !!socket,
+            socketConnected: socket ? socket.connected : false,
+            connectedState: socketConnected
+          });
           
           if (hasText || (hasMedia && mediaToSend.length === 1)) {
             // Simple case: text message or single media item
@@ -1785,8 +1992,17 @@ const Messages = () => {
                 <Avatar src={DEFAULT_AVATAR} className="h-10 w-10" />
                 <div className="ml-3">
                   <p className="font-semibold">{currentChat.user.name}</p>
-                  <p className="text-xs text-gray-500">
-                    {currentChat.user.isOnline ? 'Active' : `Last seen: ${new Date(currentChat.user.lastSeen).toLocaleString()}`}
+                  <p className="text-xs flex items-center gap-1">
+                    {currentChat.user.isOnline ? (
+                      <>
+                        <span className="h-2 w-2 bg-green-500 rounded-full inline-block animate-pulse"></span>
+                        <span className="text-green-600 font-medium">Active now</span>
+                      </>
+                    ) : (
+                      <span className="text-gray-500">
+                        Last seen: {formatLastSeen(currentChat.user.lastSeen)}
+                      </span>
+                    )}
                   </p>
                 </div>
               </>
@@ -1814,6 +2030,7 @@ const Messages = () => {
           <div className="py-4 px-4 min-h-[calc(100%-120px)]">
             <div className="flex flex-col space-y-4">
               {messages.map((message) => (
+                
                 <motion.div 
                   key={message.id} 
                   initial={message.isNew ? { opacity: 0, y: 20 } : false}
@@ -1822,6 +2039,7 @@ const Messages = () => {
                   layout={false} /* Prevent layout animations when content changes */
                   className={`flex ${message.sender === 'me' ? 'justify-end' : 'justify-start'}`}
                 >
+                
                   <div className={`flex ${message.sender === 'me' ? 'flex-row-reverse' : 'flex-row'} items-end max-w-[75%]`}>
                     {message.sender === 'them' && (
                       <div className="flex-shrink-0">
@@ -1838,7 +2056,10 @@ const Messages = () => {
                         <p className="text-xs font-semibold mb-1 text-gray-700">{message.senderName}</p>
                       )}
                       {/* Only show text if it's not an empty string */}
-                      {message.text && <p className="break-words whitespace-pre-wrap">{message.text}</p>}
+                      {message.text?.trim() && (
+  <p className="break-words whitespace-pre-wrap">{message.text}</p>
+)}
+
                       
                       {message.media && (
                         <div className={message.text ? "mt-2" : ""}>
@@ -1939,18 +2160,54 @@ const Messages = () => {
                         {message.sender === 'me' && (
                           <span className="ml-1 text-xs">
                             {message.failed ? (
-                              <span className="text-red-300">✕</span> // failed messages
-                            ) : message.sending ? (
-                              <span className="text-blue-100">•</span> // sending messages
-                            ) : message.isSeen ? (
-                              <span className="text-blue-500">✓✓</span> // seen messages (blue)
-                            ) : message.isDelivered ? (
-                              <span className="text-blue-100">✓✓</span> // delivered messages
-                            ) : message.isSent ? (
-                              <span className="text-blue-100">✓</span> // sent messages
-                            ) : (
-                              <span className="text-blue-100">•</span> // pending messages
-                            )}
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          <FontAwesomeIcon icon={faCircleXmark} className="text-red-400" />
+        </motion.div>
+      ) : message.sending ? (
+        <motion.div
+          animate={{ opacity: [0.3, 1, 0.3] }}
+          transition={{ repeat: Infinity, duration: 1.5 }}
+        >
+          <FontAwesomeIcon icon={faCircle} className="text-blue-200" />
+        </motion.div>
+      ) : message.isSeen ? (
+        <motion.div
+          initial={{ opacity: 0, y: -2 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <FontAwesomeIcon icon={faCheckDouble} className="text-blue-500" />
+        </motion.div>
+      ) : message.isDelivered ? (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          <FontAwesomeIcon icon={faCheckDouble} className="text-blue-200" />
+        </motion.div>
+      ) : message.isSent ? (
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          <FontAwesomeIcon icon={faCheck} className="text-blue-200" />
+
+        </motion.div>
+      ) : (
+        <motion.div
+          animate={{ opacity: [0.3, 1, 0.3] }}
+          transition={{ repeat: Infinity, duration: 1.5 }}
+        >
+          <FontAwesomeIcon icon={faCircle} className="text-blue-100" />
+
+        </motion.div>
+      )}
                           </span>
                         )}
                       </div>
@@ -2274,41 +2531,49 @@ const Messages = () => {
                   </div>
                 ) : (
                   filteredChats.map((chat) => (
-                  <motion.div 
-                    key={chat.id}
-                    whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
-                    onClick={() => handleSelectChat(chat.id.toString())}
-                    className={`flex items-center p-3 rounded-lg cursor-pointer mb-2 
-                      ${selectedChat === chat.id.toString() ? 'bg-[blue-50] hover:bg-blue-50' : ''}`}
-                  >
-                    <div className="relative flex-shrink-0">
-                      <Avatar src={DEFAULT_AVATAR} className="h-12 w-12" />
-                      {chat.user?.isOnline && (
-                        <Badge content="" color="success" placement="bottom-right" className="border-2 border-white" />
-                      )}
-                    </div>
-                    <div className="ml-3 flex-1 min-w-0">
-                      <div className="flex justify-between">
-                        <p className="font-semibold truncate mr-2">{chat.user?.name}</p>
-                        <p className="text-xs text-gray-500 flex-shrink-0">{new Date(chat.lastMessage?.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                      </div>
-                      <div className="text-xs text-gray-500 truncate max-w-[180px] md:max-w-[240px] flex items-center">
-                        {chat.lastMessage?.mediaType && (
-                          <span className="mr-1">
-                            <FontAwesomeIcon 
-                              icon={getMediaTypeIcon(chat.lastMessage.mediaType)} 
-                              className="text-xs text-gray-400" 
-                            />
-                          </span>
+                    <motion.div 
+                      key={chat.id}
+                      whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
+                      onClick={() => handleSelectChat(chat.id.toString())}
+                      className={`flex items-center p-3 rounded-lg cursor-pointer mb-2 ${selectedChat === chat.id.toString() ? 'bg-[#f0f9ff] hover:bg-blue-50' : ''}`}
+                    >
+                      <div className="relative">
+                        <Avatar src={DEFAULT_AVATAR} className="h-10 w-10" />
+                        {chat.user?.isOnline && (
+                          <span className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 rounded-full border-2 border-white"></span>
                         )}
-                        
-                        {chat.lastMessage?.mediaType ? 
-                          (chat.lastMessage?.content ? 
-                            chat.lastMessage.content : 
-                            `${chat.lastMessage.mediaType.split('/')[0]} file`) : 
-                          (chat.lastMessage?.content || 'No messages yet')}
                       </div>
-                    </div>
+                      <div className="ml-3 flex-1 min-w-0">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-semibold truncate">{chat.user?.name || 'Unknown User'}</p>
+                            {!chat.user?.isOnline && chat.user?.lastSeen && (
+                              <p className="text-xs text-gray-500 -mt-0.5">
+                                Last seen: {formatLastSeen(chat.user.lastSeen)}
+                              </p>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            {chat.lastMessage?.sentAt ? formatTimeAgo(new Date(chat.lastMessage.sentAt)) : ''}
+                          </p>
+                        </div>
+                        <div className="text-xs text-gray-500 truncate max-w-[180px] md:max-w-[240px] flex items-center">
+                          {chat.lastMessage?.mediaType && (
+                            <span className="mr-1">
+                              <FontAwesomeIcon 
+                                icon={getMediaTypeIcon(chat.lastMessage.mediaType)} 
+                                className="text-xs text-gray-400" 
+                              />
+                            </span>
+                          )}
+                          
+                          {chat.lastMessage?.mediaType ? 
+                            (chat.lastMessage?.content ? 
+                              chat.lastMessage.content : 
+                              `${chat.lastMessage.mediaType.split('/')[0]} file`) : 
+                            (chat.lastMessage?.content || 'No messages yet')}
+                        </div>
+                      </div>
                   </motion.div>
                 )))}
               </ScrollShadow>
