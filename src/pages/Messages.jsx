@@ -587,6 +587,11 @@ const Messages = () => {
   // User status tracking
   const [userStatuses, setUserStatuses] = useState({});
   
+  // Typing status tracking
+  const [isUserTyping, setIsUserTyping] = useState(false);
+  const [typingUsers, setTypingUsers] = useState({});
+  const typingTimeoutRef = useRef(null);
+  
   const fileInputRef = useRef(null);
   
   // Debug log for current user ID
@@ -915,7 +920,30 @@ const Messages = () => {
       SocketService.offUserStatusChange(statusListenerId);
     };
   }, []);
-  
+
+  // Filter chats based on search query
+  const filteredChats = chatData.filter(chat => 
+    chat.user?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Get the selected chat data
+  const currentChat = chatData.find(chat => chat.id.toString() === selectedChat);
+
+  // Clean up typing timeout on unmount or chat change
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      // Reset typing status when changing chats
+      if (isUserTyping && currentChat?.user?.id) {
+        setIsUserTyping(false);
+        SocketService.emitTypingStatus(currentChat.user.id, false);
+      }
+    };
+  }, [selectedChat, isUserTyping, currentChat]);
+
   // Listen for socket events (other than user status)
   useEffect(() => {
     // Clean up function to remove previous listeners
@@ -928,6 +956,7 @@ const Messages = () => {
         socket.off('seen_message');
         socket.off('message_sent');
         socket.off('message_delivered');
+        socket.off('typing_status');
       }
     };
     
@@ -1244,6 +1273,22 @@ const Messages = () => {
           });
         }
       });
+      
+      // Register listener for typing status
+      SocketService.onTypingStatus((typingData) => {
+        console.log('Typing status update received:', typingData);
+        
+        if (typingData && typingData.userId) {
+          // Update typing status for this user
+          setTypingUsers(prev => ({
+            ...prev,
+            [typingData.userId]: {
+              isTyping: typingData.isTyping,
+              timestamp: new Date().getTime()
+            }
+          }));
+        }
+      });
     }
     
     return () => {
@@ -1387,14 +1432,6 @@ const Messages = () => {
     
     fetchChats();
   }, []);
-
-  // Filter chats based on search query
-  const filteredChats = chatData.filter(chat => 
-    chat.user?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  // Get the selected chat data
-  const currentChat = chatData.find(chat => chat.id.toString() === selectedChat);
 
   // Handle file upload when files are selected
   const handleFileSelect = useCallback(async (event) => {
@@ -1986,7 +2023,7 @@ const Messages = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold mb-2">Your Messages</h3>
+              <h3 className="text-2xl font-bold mb-2">Your Messages</h3>
               <p className="text-gray-500 mb-4">Select a chat to start messaging</p>
             </CardBody>
           </Card>
@@ -2021,16 +2058,39 @@ const Messages = () => {
                     </span>
                   </div>
                   <p className="text-xs flex items-center gap-1">
-                    {currentChat.user.isOnline ? (
-                      <>
-                        <span className="h-2 w-2 bg-green-500 rounded-full inline-block animate-pulse"></span>
-                        <span className="text-green-600 font-medium">Active now</span>
-                      </>
-                    ) : (
-                      <span className="text-gray-500">
-                        Last seen: {formatLastSeen(currentChat.user.lastSeen)}
-                      </span>
-                    )}
+                    {/* Show typing indicator if user is typing */}
+                    {typingUsers[currentChat.user.id]?.isTyping ? (
+  <span className="text-green-600 font-medium flex items-center space-x-1">
+    <span>Typing</span>
+    <span className="flex items-center space-x-1 ml-1">
+      {[0, 1, 2].map((i) => (
+        <motion.span
+          key={i}
+          initial={{ y: 0 }}
+          animate={{ y: [-2, 0, -2] }}
+          transition={{
+            duration: 0.6,
+            repeat: Infinity,
+            delay: i * 0.2,
+            ease: "easeInOut",
+          }}
+        >
+          <FontAwesomeIcon icon={faCircle} className="text-[3px]"/>
+          {/* <FaCircle  /> */}
+        </motion.span>
+      ))}
+    </span>
+  </span>
+) : currentChat.user.isOnline ? (
+  <>
+    <span className="h-2 w-2 bg-green-500 rounded-full inline-block animate-pulse"></span>
+    <span className="text-green-600 font-medium ml-1">Active now</span>
+  </>
+) : (
+  <span className="text-gray-500">
+    Last seen: {formatLastSeen(currentChat.user.lastSeen)}
+  </span>
+)}
                   </p>
                 </div>
               </>
@@ -2149,7 +2209,9 @@ const Messages = () => {
                                       return (
                                         <div 
                                           key={index} 
-                                          className={`flex items-center p-2 rounded-lg ${message.sender === 'me' ? 'bg-[#006C54] bg-opacity-60' : 'bg-gray-100'}`}
+                                          className={`flex items-center p-2 rounded-lg ${message.sender === 'me' 
+                                            ? 'bg-[#006C54] bg-opacity-60' 
+                                            : 'bg-gray-100'}`}
                                           onClick={() => window.open(item.url, '_blank')}
                                         >
                                           <div className={`p-2 rounded mr-2 ${message.sender === 'me' ? 'bg-white bg-opacity-20' : 'bg-white bg-opacity-80'}`}>
@@ -2375,7 +2437,31 @@ const Messages = () => {
                 type="text"
                 placeholder="Type a message..."
                 value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
+                onChange={(e) => {
+                  setNewMessage(e.target.value);
+                  
+                  // Only emit typing status if we're in an active chat
+                  if (selectedChat && currentChat?.user?.id) {
+                    // If user wasn't already typing, emit typing started
+                    if (!isUserTyping) {
+                      setIsUserTyping(true);
+                      SocketService.emitTypingStatus(currentChat.user.id, true);
+                    }
+                    
+                    // Clear any existing timeout
+                    if (typingTimeoutRef.current) {
+                      clearTimeout(typingTimeoutRef.current);
+                    }
+                    
+                    // Set a new timeout to emit typing stopped after 2 seconds of inactivity
+                    typingTimeoutRef.current = setTimeout(() => {
+                      if (isUserTyping) {
+                        setIsUserTyping(false);
+                        SocketService.emitTypingStatus(currentChat.user.id, false);
+                      }
+                    }, 2000);
+                  }
+                }}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 className="w-full"
               />

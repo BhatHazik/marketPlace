@@ -227,6 +227,35 @@ const getAllUserStatuses = () => {
   return { ...userStatuses };
 };
 
+// Listener for typing status updates
+const onTypingStatus = (callback) => {
+  if (socket) {
+    console.log('Registering typing_status listener');
+    socket.on('typing_status', (typingData) => {
+      console.log('Typing status received:', typingData);
+      callback(typingData);
+    });
+  } else {
+    console.error('Cannot register typing_status listener: socket not connected');
+  }
+};
+
+// Emitter for typing status
+const emitTypingStatus = (receiverId, isTyping) => {
+  if (socket) {
+    try {
+      console.log(`Emitting typing_status: ${isTyping ? 'typing' : 'stopped typing'} to user ${receiverId}`);
+      socket.emit('typing_status', { receiverId, isTyping }, (response) => {
+        console.log('Socket server acknowledged typing_status:', response);
+      });
+    } catch (error) {
+      console.error('Error emitting typing_status:', error);
+    }
+  } else {
+    console.error('Socket not connected, cannot emit typing_status');
+  }
+};
+
 // Get the current socket instance (or null if not connected)
 const getSocket = () => {
   return socket;
@@ -246,6 +275,8 @@ export const SocketService = {
   offUserStatusChange,
   getUserStatus,
   getAllUserStatuses,
+  onTypingStatus,
+  emitTypingStatus,
   getSocket,
   isConnected: () => socket !== null && socket.connected
 };
