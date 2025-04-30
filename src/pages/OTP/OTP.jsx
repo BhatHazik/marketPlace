@@ -12,6 +12,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import UseAPI from "../../hooks/UseAPI";
 import { toast } from "react-toastify";
+import { SocketService } from "../../services/socket.service";
 
 const OTP = () => {
   const [value, setValue] = useState("");
@@ -37,6 +38,9 @@ const OTP = () => {
       localStorage.setItem("token", response.token);
       localStorage.setItem("userCountry", country);
       localStorage.setItem("userId", response.user.id);
+      
+      // Connect to socket after successful login
+      SocketService.connectSocket(response.token);
       
       toast.success(response.message);
       return navigate("/");

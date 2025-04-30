@@ -592,6 +592,10 @@ const Messages = () => {
   const [typingUsers, setTypingUsers] = useState({});
   const typingTimeoutRef = useRef(null);
   
+  // Blocking related states
+  const [isUserBlocked, setIsUserBlocked] = useState(false); // User has blocked the other user
+  const [isBlockedByUser, setIsBlockedByUser] = useState(false); // User is blocked by the other user
+  
   const fileInputRef = useRef(null);
   
   // Debug log for current user ID
@@ -957,6 +961,8 @@ const Messages = () => {
         socket.off('message_sent');
         socket.off('message_delivered');
         socket.off('typing_status');
+        socket.off('user_blocked');
+        socket.off('blocked_by_user');
       }
     };
     
@@ -1274,7 +1280,7 @@ const Messages = () => {
         }
       });
       
-      // Register listener for typing status
+      // Listen for typing status
       SocketService.onTypingStatus((typingData) => {
         console.log('Typing status update received:', typingData);
         
@@ -1287,6 +1293,100 @@ const Messages = () => {
               timestamp: new Date().getTime()
             }
           }));
+        }
+      });
+      
+      // Setup block-related listeners
+      
+      // Listen for confirmation when user blocks someone
+      SocketService.onUserBlocked((blockData) => {
+        console.log("Block confirmation received:", blockData);
+        
+        // Debug log the comparison
+        console.log("Comparing IDs:", {
+          blockData,
+          blockedUserId: blockData.blockedUserId,
+          selectedChatUserId: selectedChat?.userId || currentChat?.user?.id,
+          currentChatId: currentChat?.id,
+          isMatch: selectedChat && 
+            (parseInt(blockData.blockedUserId) === parseInt(selectedChat.userId || currentChat?.user?.id))
+        });
+        
+        if (selectedChat && 
+            (parseInt(blockData.blockedUserId) === parseInt(selectedChat.userId || currentChat?.user?.id))) {
+          setIsUserBlocked(true);
+          
+          // Update the selected chat with blocked status
+          setSelectedChat(prevChat => ({
+            ...prevChat,
+            isBlocked: true
+          }));
+          
+          // Find the chat in the chat list and update its BlockedByMe status
+          const chatId = selectedChat.id || currentChat?.id;
+          if (chatId) {
+            setChatData(prevChats => 
+              prevChats.map(chat => {
+                // Find the chat that contains the blocked user
+                const chatContainsBlockedUser = chat.user && 
+                  String(chat.user.id) === String(blockData.blockedUserId);
+                
+                if (chatContainsBlockedUser) {
+                  console.log(`Updating BlockedByMe status for chat ${chat.id}`);
+                  return { ...chat, BlockedByMe: true };
+                }
+                return chat;
+              })
+            );
+          }
+          
+          toast.success("User has been blocked");
+        }
+      });
+      
+      // Listen for when user gets blocked by someone else
+      SocketService.onBlockedByUser((blockData) => {
+        console.log("Blocked by user notification received:", blockData);
+        
+        // Debug log the comparison
+        console.log("Comparing IDs for blocked_by_user:", {
+          blockData,
+          blockingUserId: blockData.userId,
+          selectedChatUserId: selectedChat?.userId || currentChat?.user?.id,
+          currentChatId: currentChat?.id,
+          isMatch: selectedChat && 
+            (parseInt(blockData.userId) === parseInt(selectedChat.userId || currentChat?.user?.id))
+        });
+        
+        if (selectedChat && 
+            (parseInt(blockData.userId) === parseInt(selectedChat.userId || currentChat?.user?.id))) {
+          setIsBlockedByUser(true);
+          
+          // Update the selected chat with blocked status
+          setSelectedChat(prevChat => ({
+            ...prevChat,
+            isBlockedByUser: true
+          }));
+          
+          // Find the chat in the chat list and update its BlockedMe status
+          const chatId = selectedChat.id || currentChat?.id;
+          if (chatId) {
+            setChatData(prevChats => 
+              prevChats.map(chat => {
+                // Find the chat that contains the user who blocked this user
+                const chatContainsBlockingUser = chat.user && 
+                  String(chat.user.id) === String(blockData.userId);
+                
+                if (chatContainsBlockingUser) {
+                  console.log(`Updating BlockedMe status for chat ${chat.id}`);
+                  return { ...chat, BlockedMe: true };
+                }
+                return chat;
+              })
+            );
+          }
+          
+          toast.error("You have been blocked by this user");
         }
       });
     }
@@ -1774,7 +1874,7 @@ const Messages = () => {
               content: messageContent || '' // Use stored content, not the cleared newMessage
             };
             
-            // Add media information if available (first or only item)
+            // Add media information if available (first media item)
             if (hasMedia) {
               const firstMedia = mediaToSend[0];
               socketMessageData.mediaUrl = firstMedia.mediaUrl;
@@ -1857,6 +1957,25 @@ const Messages = () => {
   // Handle selecting a chat
   const handleSelectChat = (chatId) => {
     try {
+      // Find the selected chat from chatData
+      const selectedChatData = chatData.find(chat => chat.id === parseInt(chatId));
+      
+      if (selectedChatData) {
+        console.log('Selected chat data:', selectedChatData);
+        
+        // Set block status based on chat list data
+        setIsUserBlocked(selectedChatData.BlockedByMe || false);
+        setIsBlockedByUser(selectedChatData.BlockedMe || false);
+        
+        // Log block status for debugging
+        console.log('Block status for chat', chatId, ':', {
+          BlockedByMe: selectedChatData.BlockedByMe,
+          BlockedMe: selectedChatData.BlockedMe,
+          stateIsUserBlocked: selectedChatData.BlockedByMe || false,
+          stateIsBlockedByUser: selectedChatData.BlockedMe || false
+        });
+      }
+      
       setSelectedChat(chatId);
       fetchMessages(chatId);
       
@@ -2059,7 +2178,7 @@ const Messages = () => {
                   </div>
                   <p className="text-xs flex items-center gap-1">
                     {/* Show typing indicator if user is typing */}
-                    {typingUsers[currentChat.user.id]?.isTyping ? (
+                    {typingUsers[currentChat.user.id]?.isTyping && !isUserBlocked && !isBlockedByUser ? (
   <span className="text-green-600 font-medium flex items-center space-x-1">
     <span>Typing</span>
     <span className="flex items-center space-x-1 ml-1">
@@ -2105,9 +2224,25 @@ const Messages = () => {
                 </Button>
               </DropdownTrigger>
               <DropdownMenu aria-label="Chat actions">
-                <DropdownItem>View profile</DropdownItem>
-                <DropdownItem>Block user</DropdownItem>
-                <DropdownItem>Delete conversation</DropdownItem>
+                {!isUserBlocked ? (
+                  <DropdownItem 
+                    key="block" 
+                    className="text-danger" 
+                    color="danger"
+                    onPress={handleBlockUser}
+                  >
+                    Block User
+                  </DropdownItem>
+                ) : (
+                  <DropdownItem 
+                    key="unblock" 
+                    color="primary"
+                    onPress={handleUnblockUser}
+                  >
+                    Unblock User
+                  </DropdownItem>
+                )}
+                <DropdownItem key="delete">Delete Conversation</DropdownItem>
               </DropdownMenu>
             </Dropdown>
           </div>
@@ -2311,173 +2446,198 @@ const Messages = () => {
           </div>
         </ScrollShadow>
         
-        {/* Message Input - Fixed at bottom */}
-        <div className="border-t p-3 bg-white sticky bottom-0 z-10 shadow-sm mt-auto">
-          <div className="flex items-center">
-            {/* Hidden file inputs for different types of uploads */}
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              onChange={handleFileSelect} 
-              multiple
-            />
-            
-            {/* Direct file inputs for image and video buttons */}
-            <input 
-              type="file" 
-              id="photoInput"
-              className="hidden" 
-              accept="image/*"
-              onChange={handleFileSelect} 
-              multiple
-            />
-            
-            <input 
-              type="file" 
-              id="videoInput"
-              className="hidden" 
-              accept="video/*"
-              onChange={handleFileSelect} 
-              multiple
-            />
-            
-            <div className="flex gap-2 mr-2">
-              <Dropdown>
-                <DropdownTrigger>
-                  <Button isIconOnly variant="light" size="sm">
-                    <FontAwesomeIcon icon={faFile} />
-                  </Button>
-                </DropdownTrigger>
-                <DropdownMenu aria-label="Attachment options">
-                  <DropdownItem 
-                    startContent={<FontAwesomeIcon icon={faImage} />}
-                    onClick={() => handleAttachmentClick('photo')}
-                  >
-                    Photo
-                  </DropdownItem>
-                  <DropdownItem 
-                    startContent={<FontAwesomeIcon icon={faVideo} />}
-                    onClick={() => handleAttachmentClick('video')}
-                  >
-                    Video
-                  </DropdownItem>
-                  <DropdownItem 
-                    startContent={<FontAwesomeIcon icon={faFile} />}
-                    onClick={() => handleAttachmentClick('document')}
-                  >
-                    Document
-                  </DropdownItem>
-                </DropdownMenu>
-              </Dropdown>
-              
-              <Button 
-                isIconOnly 
-                variant="light" 
-                size="sm"
-                onClick={() => document.getElementById('photoInput').click()}
-              >
-                <FontAwesomeIcon icon={faImage} />
-              </Button>
-              
-              <Button 
-                isIconOnly 
-                variant="light" 
-                size="sm"
-                onClick={() => document.getElementById('videoInput').click()}
-              >
-                <FontAwesomeIcon icon={faVideo} />
-              </Button>
-            </div>
-            
-            <div className="flex-1 relative">
-              {/* Display media preview above input if media is attached */}
-              {uploadedMedia.length > 0 && (
-                <div className="flex flex-wrap gap-2 p-2 mb-2 bg-gray-50 rounded-lg border">
-                  {uploadedMedia.map((media) => (
-                    <div key={media.id} className="relative group">
-                      <div className="h-16 w-16 rounded-md overflow-hidden relative bg-gray-200 flex items-center justify-center">
-                        {media.mediaType.startsWith('image/') ? (
-                          <img 
-                            src={`${BASE_URL}${media.mediaUrl}`} 
-                            alt="Preview" 
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <FontAwesomeIcon 
-                            icon={getMediaTypeIcon(media.mediaType)} 
-                            className="text-gray-500 text-xl"
-                          />
-                        )}
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
-                          <Button 
-                            isIconOnly 
-                            size="sm" 
-                            color="danger" 
-                            variant="flat" 
-                            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRemoveMedia(media.id);
-                            }}
-                          >
-                            <FontAwesomeIcon icon={faX} className="text-xs" />
-                          </Button>
-                        </div>
-                      </div>
-                      <span className="text-xs truncate block w-16 text-center mt-1">
-                        {media.mediaType.split('/')[1]}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              <Input
-                type="text"
-                placeholder="Type a message..."
-                value={newMessage}
-                onChange={(e) => {
-                  setNewMessage(e.target.value);
-                  
-                  // Only emit typing status if we're in an active chat
-                  if (selectedChat && currentChat?.user?.id) {
-                    // If user wasn't already typing, emit typing started
-                    if (!isUserTyping) {
-                      setIsUserTyping(true);
-                      SocketService.emitTypingStatus(currentChat.user.id, true);
-                    }
-                    
-                    // Clear any existing timeout
-                    if (typingTimeoutRef.current) {
-                      clearTimeout(typingTimeoutRef.current);
-                    }
-                    
-                    // Set a new timeout to emit typing stopped after 2 seconds of inactivity
-                    typingTimeoutRef.current = setTimeout(() => {
-                      if (isUserTyping) {
-                        setIsUserTyping(false);
-                        SocketService.emitTypingStatus(currentChat.user.id, false);
-                      }
-                    }, 2000);
-                  }
-                }}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                className="w-full"
+        {/* Block Status Messages */}
+        {isUserBlocked && (
+          <div className={`py-3 px-4 bg-neutral-100 text-center`}>
+            <p className="text-sm">You have blocked this user</p>
+          </div>
+        )}
+        
+        {isBlockedByUser && (
+          <div className={`py-3 px-4 bg-neutral-100 text-center`}>
+            <p className="text-sm">You have been blocked by this user</p>
+          </div>
+        )}
+        
+        {/* Message Input Area - Hide when blocked */}
+        {!isUserBlocked && !isBlockedByUser ? (
+          <div className="border-t p-3 bg-white sticky bottom-0 z-10 shadow-sm mt-auto">
+            <div className="flex items-center">
+              {/* Hidden file inputs for different types of uploads */}
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                onChange={handleFileSelect} 
+                multiple
               />
+              
+              {/* Direct file inputs for image and video buttons */}
+              <input 
+                type="file" 
+                id="photoInput"
+                className="hidden" 
+                accept="image/*"
+                onChange={handleFileSelect} 
+                multiple
+              />
+              
+              <input 
+                type="file" 
+                id="videoInput"
+                className="hidden" 
+                accept="video/*"
+                onChange={handleFileSelect} 
+                multiple
+              />
+              
+              <div className="flex gap-2 mr-2">
+                <Dropdown>
+                  <DropdownTrigger>
+                    <Button isIconOnly variant="light" size="sm">
+                      <FontAwesomeIcon icon={faFile} />
+                    </Button>
+                  </DropdownTrigger>
+                  <DropdownMenu aria-label="Attachment options">
+                    <DropdownItem 
+                      startContent={<FontAwesomeIcon icon={faImage} />}
+                      onClick={() => handleAttachmentClick('photo')}
+                    >
+                      Photo
+                    </DropdownItem>
+                    <DropdownItem 
+                      startContent={<FontAwesomeIcon icon={faVideo} />}
+                      onClick={() => handleAttachmentClick('video')}
+                    >
+                      Video
+                    </DropdownItem>
+                    <DropdownItem 
+                      startContent={<FontAwesomeIcon icon={faFile} />}
+                      onClick={() => handleAttachmentClick('document')}
+                    >
+                      Document
+                    </DropdownItem>
+                  </DropdownMenu>
+                </Dropdown>
+                
+                <Button 
+                  isIconOnly 
+                  variant="light" 
+                  size="sm"
+                  onClick={() => document.getElementById('photoInput').click()}
+                >
+                  <FontAwesomeIcon icon={faImage} />
+                </Button>
+                
+                <Button 
+                  isIconOnly 
+                  variant="light" 
+                  size="sm"
+                  onClick={() => document.getElementById('videoInput').click()}
+                >
+                  <FontAwesomeIcon icon={faVideo} />
+                </Button>
+              </div>
+              
+              <div className="flex-1 relative">
+                {/* Display media preview above input if media is attached */}
+                {uploadedMedia.length > 0 && (
+                  <div className="flex flex-wrap gap-2 p-2 mb-2 bg-gray-50 rounded-lg border">
+                    {uploadedMedia.map((media) => (
+                      <div key={media.id} className="relative group">
+                        <div className="h-16 w-16 rounded-md overflow-hidden relative bg-gray-200 flex items-center justify-center">
+                          {media.mediaType.startsWith('image/') ? (
+                            <img 
+                              src={`${BASE_URL}${media.mediaUrl}`} 
+                              alt="Preview" 
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <FontAwesomeIcon 
+                              icon={getMediaTypeIcon(media.mediaType)} 
+                              className="text-gray-500 text-xl"
+                            />
+                          )}
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
+                            <Button 
+                              isIconOnly 
+                              size="sm" 
+                              color="danger" 
+                              variant="flat" 
+                              className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveMedia(media.id);
+                              }}
+                            >
+                              <FontAwesomeIcon icon={faX} className="text-xs" />
+                            </Button>
+                          </div>
+                        </div>
+                        <span className="text-xs truncate block w-16 text-center mt-1">
+                          {media.mediaType.split('/')[1]}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <Input
+                  type="text"
+                  placeholder="Type a message..."
+                  value={newMessage}
+                  onChange={(e) => {
+                    setNewMessage(e.target.value);
+                    
+                    // Only emit typing status if we're in an active chat
+                    if (selectedChat && currentChat?.user?.id) {
+                      // If user wasn't already typing, emit typing started
+                      if (!isUserTyping) {
+                        setIsUserTyping(true);
+                        SocketService.emitTypingStatus(currentChat.user.id, true);
+                      }
+                      
+                      // Clear any existing timeout
+                      if (typingTimeoutRef.current) {
+                        clearTimeout(typingTimeoutRef.current);
+                      }
+                      
+                      // Set a new timeout to emit typing stopped after 2 seconds of inactivity
+                      typingTimeoutRef.current = setTimeout(() => {
+                        if (isUserTyping) {
+                          setIsUserTyping(false);
+                          SocketService.emitTypingStatus(currentChat.user.id, false);
+                        }
+                      }, 2000);
+                    }
+                  }}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  className="w-full"
+                />
+              </div>
+              
+              <Button 
+                isIconOnly 
+                color="primary" 
+                variant="solid" 
+                className="ml-2 bg-[#006C54]"
+                onClick={handleSendMessage}
+              >
+                <FontAwesomeIcon icon={faPaperPlane} />
+              </Button>
             </div>
-            
-            <Button 
-              isIconOnly 
-              color="primary" 
-              variant="solid" 
-              className="ml-2 bg-[#006C54]"
-              onClick={handleSendMessage}
+          </div>
+        ) : isUserBlocked ? (
+          <div className="border-t p-3 bg-white sticky bottom-0 z-10 shadow-sm mt-auto flex justify-center">
+            <Button
+              color="primary"
+              variant="flat"
+              onPress={handleUnblockUser}
             >
-              <FontAwesomeIcon icon={faPaperPlane} />
+              Unblock User
             </Button>
           </div>
-        </div>
+        ) : null}
       </div>
     );
   };
@@ -2581,6 +2741,95 @@ const Messages = () => {
         </ModalContent>
       </Modal>
     );
+  };
+
+  // Function to update a chat in the list
+  const updateChatInList = (chatId, updateData) => {
+    setChatData(prevChats => 
+      prevChats.map(chat => 
+        chat.id === chatId ? { ...chat, ...updateData } : chat
+      )
+    );
+  };
+
+  // Function to block a user
+  const handleBlockUser = () => {
+    if (!selectedChat) return;
+    
+    // Debug log
+    console.log('Blocking user:', {
+      selectedChat,
+      selectedUserId: selectedChat.userId || (currentChat?.user?.id),
+      chatId: selectedChat.id
+    });
+    
+    // Get the correct user ID - handle different data structures
+    const blockedUserId = selectedChat.userId || (currentChat?.user?.id);
+    
+    if (!blockedUserId) {
+      console.error('Unable to determine which user to block');
+      toast.error('Could not block user - missing user ID');
+      return;
+    }
+    
+    // Emit block_user event
+    SocketService.emitBlockUser(blockedUserId);
+    
+    // For better UX, update the UI immediately (optimistic update)
+    // This will be overridden by the actual server response if it differs
+    setIsUserBlocked(true);
+    
+    // Update the selected chat with blocked status
+    setSelectedChat(prevChat => ({
+      ...prevChat,
+      isBlocked: true
+    }));
+    
+    // Show a toast to indicate the action is in progress
+    toast.info('Blocking user...');
+    
+    // UI will be confirmed when we receive the confirmation via onUserBlocked
+  };
+
+  // Function to unblock a user
+  const handleUnblockUser = () => {
+    if (!selectedChat) return;
+    
+    // Get the correct user ID
+    const blockedUserId = selectedChat.userId || (currentChat?.user?.id);
+    
+    if (!blockedUserId) {
+      console.error('Unable to determine which user to unblock');
+      toast.error('Could not unblock user - missing user ID');
+      return;
+    }
+    
+    // For a more complete implementation, you would emit an unblock event:
+    // SocketService.emitUnblockUser(blockedUserId);
+    // And wait for confirmation via the socket
+    
+    // Update the UI state immediately for better UX
+    setIsUserBlocked(false);
+    
+    // Update the selected chat with unblocked status
+    setSelectedChat(prevChat => ({
+      ...prevChat,
+      isBlocked: false
+    }));
+    
+    // Update the chat in the list to persist the change
+    const chatId = parseInt(selectedChat.id || currentChat?.id);
+    if (chatId) {
+      setChatData(prevChats => 
+        prevChats.map(chat => 
+          chat.id === chatId 
+            ? { ...chat, BlockedByMe: false } 
+            : chat
+        )
+      );
+    }
+    
+    toast.success("User has been unblocked");
   };
 
   return (

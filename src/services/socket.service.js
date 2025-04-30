@@ -256,6 +256,51 @@ const emitTypingStatus = (receiverId, isTyping) => {
   }
 };
 
+// Emitter for blocking a user
+const emitBlockUser = (blockedUserId) => {
+  if (socket) {
+    console.log('Emitting block_user for userId:', blockedUserId);
+    
+    socket.emit('block_user', { blockedUserId }, (response) => {
+      console.log('Socket server acknowledged block_user:', response);
+    });
+  } else {
+    console.error('Socket not connected, cannot emit block_user');
+  }
+};
+
+// Listener for when current user blocks someone (confirmation)
+const onUserBlocked = (callback) => {
+  if (socket) {
+    console.log('Registering user_blocked listener');
+    // Remove any existing listeners to prevent duplicates
+    socket.off('user_blocked');
+    
+    socket.on('user_blocked', (blockData) => {
+      console.log('User blocked confirmation received:', blockData);
+      callback(blockData);
+    });
+  } else {
+    console.error('Cannot register user_blocked listener: socket not connected');
+  }
+};
+
+// Listener for when current user is blocked by someone else
+const onBlockedByUser = (callback) => {
+  if (socket) {
+    console.log('Registering blocked_by_user listener');
+    // Remove any existing listeners to prevent duplicates
+    socket.off('blocked_by_user');
+    
+    socket.on('blocked_by_user', (blockData) => {
+      console.log('Blocked by user notification received:', blockData);
+      callback(blockData);
+    });
+  } else {
+    console.error('Cannot register blocked_by_user listener: socket not connected');
+  }
+};
+
 // Get the current socket instance (or null if not connected)
 const getSocket = () => {
   return socket;
@@ -266,10 +311,10 @@ export const SocketService = {
   connectSocket,
   disconnectSocket,
   onPrivateMessage,
+  emitPrivateMessage,
   onMessageSent,
   onMessageDelivered,
   onMessageSeen,
-  emitPrivateMessage,
   emitMessageSeen,
   onUserStatusChange,
   offUserStatusChange,
@@ -278,5 +323,8 @@ export const SocketService = {
   onTypingStatus,
   emitTypingStatus,
   getSocket,
+  emitBlockUser,
+  onUserBlocked,
+  onBlockedByUser,
   isConnected: () => socket !== null && socket.connected
 };

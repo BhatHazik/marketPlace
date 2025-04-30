@@ -4,6 +4,7 @@ import { Avatar, AvatarIcon, Button, Dropdown, DropdownTrigger, DropdownMenu, Dr
 import olxLogo from "../assets/olx_logo.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus, faBars, faXmark, faMessage, faInbox } from "@fortawesome/free-solid-svg-icons";
+import { SocketService } from "../services/socket.service";
 
 const Navbar = () => {
   const [isSticky, setIsSticky] = useState(false);
@@ -258,6 +259,8 @@ const Navbar = () => {
                       textValue="Logout"
                       className="bg-[#006C54] text-white font-bold"
                       onPress={() => {
+                        // Disconnect socket before logout
+                        SocketService.disconnectSocket();
                         localStorage.removeItem("token");
                         navigate("/");
                       }}
@@ -331,6 +334,8 @@ const Navbar = () => {
                       textValue="Logout"
                       className="bg-[#006C54] text-white font-bold"
                       onPress={() => {
+                        // Disconnect socket before logout
+                        SocketService.disconnectSocket();
                         localStorage.removeItem("token");
                         navigate("/");
                       }}
