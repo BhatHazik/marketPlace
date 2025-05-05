@@ -269,6 +269,19 @@ const emitBlockUser = (blockedUserId) => {
   }
 };
 
+// Emitter for unblocking a user
+const emitUnblockUser = (unblockedUserId) => {
+  if (socket) {
+    console.log('Emitting unblock_user for userId:', unblockedUserId);
+    
+    socket.emit('unblock_user', { unblockedUserId }, (response) => {
+      console.log('Socket server acknowledged unblock_user:', response);
+    });
+  } else {
+    console.error('Socket not connected, cannot emit unblock_user');
+  }
+};
+
 // Listener for when current user blocks someone (confirmation)
 const onUserBlocked = (callback) => {
   if (socket) {
@@ -285,6 +298,22 @@ const onUserBlocked = (callback) => {
   }
 };
 
+// Listener for when current user unblocks someone (confirmation)
+const onUserUnblocked = (callback) => {
+  if (socket) {
+    console.log('Registering user_unblocked listener');
+    // Remove any existing listeners to prevent duplicates
+    socket.off('user_unblocked');
+    
+    socket.on('user_unblocked', (unblockData) => {
+      console.log('User unblocked confirmation received:', unblockData);
+      callback(unblockData);
+    });
+  } else {
+    console.error('Cannot register user_unblocked listener: socket not connected');
+  }
+};
+
 // Listener for when current user is blocked by someone else
 const onBlockedByUser = (callback) => {
   if (socket) {
@@ -298,6 +327,22 @@ const onBlockedByUser = (callback) => {
     });
   } else {
     console.error('Cannot register blocked_by_user listener: socket not connected');
+  }
+};
+
+// Listener for when current user is unblocked by someone else
+const onUnblockedByUser = (callback) => {
+  if (socket) {
+    console.log('Registering unblocked_by_user listener');
+    // Remove any existing listeners to prevent duplicates
+    socket.off('unblocked_by_user');
+    
+    socket.on('unblocked_by_user', (unblockData) => {
+      console.log('Unblocked by user notification received:', unblockData);
+      callback(unblockData);
+    });
+  } else {
+    console.error('Cannot register unblocked_by_user listener: socket not connected');
   }
 };
 
@@ -326,5 +371,8 @@ export const SocketService = {
   emitBlockUser,
   onUserBlocked,
   onBlockedByUser,
+  emitUnblockUser,
+  onUserUnblocked,
+  onUnblockedByUser,
   isConnected: () => socket !== null && socket.connected
 };

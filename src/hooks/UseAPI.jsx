@@ -35,7 +35,7 @@ const UseAPI = () => {
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message;
       setError(errorMessage);
-      // Only show toast if showErrorToast option is not set to false
+      
       if (options.showErrorToast !== false) {
         toast.error(errorMessage);
       }

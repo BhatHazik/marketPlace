@@ -23,17 +23,31 @@ import ProductCard from '../components/ProductCard';
 import { initFlowbite } from 'flowbite';
 import FeaturedListings from '../components/FeaturedListings';
 import FreshListings from '../components/FreshListings';
+import { useParams } from 'react-router-dom';
+import UseAPI from '../hooks/UseAPI';
 
 const PreviewAd = () => {
   const [hearted, setHearted] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [slideDirection, setSlideDirection] = useState('right');
   const [isAnimating, setIsAnimating] = useState(false);
+  const {id} = useParams();
+  const {requestAPI, loading} = UseAPI();
 
   // Initialize Flowbite
   useEffect(() => {
     initFlowbite();
   }, []);
+
+
+  const handleGetListing = async()=>{
+    const response = await requestAPI('GET',`/listings/${id}`);
+    console.log(response.data);
+  }
+
+  useEffect(()=>{
+    handleGetListing();
+  },[id]);
 
   // Function to handle next image
   const handleNext = () => {

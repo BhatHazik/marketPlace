@@ -1,11 +1,20 @@
-import { Input, Select, SelectItem, Button } from "@heroui/react";
-import { useState } from "react";
+import { Input, Select, SelectItem, Button, Spinner } from "@heroui/react";
+import { useState, useEffect } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSearch, faChevronDown } from "@fortawesome/free-solid-svg-icons";
+import UseAPI from "../hooks/UseAPI";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { toast } from "react-toastify";
 
-const SearchBar = ({ className = "", containerClassName = "", width }) => {
+const SearchBar = ({ className = "", containerClassName = "", width, onLocationChange, onLocationIdChange}) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [location, setLocation] = useState("srinagar");
+  const [location, setLocation] = useState("");
+  const [states, setStates] = useState([]);
+  const [isLoadingStates, setIsLoadingStates] = useState(true);
+  const { requestAPI } = UseAPI();
+  const navigate = useNavigate();
+  const site = useLocation();
+  const {search, category, catId} = useParams();
 
   // Generate dynamic width style
   const getWidthStyle = () => {
@@ -15,24 +24,119 @@ const SearchBar = ({ className = "", containerClassName = "", width }) => {
     return {};
   };
 
-  const locations = [
-    { key: "all", label: "All India" },
-    { key: "srinagar", label: "Srinagar" },
-    { key: "delhi", label: "Delhi" },
-    { key: "mumbai", label: "Mumbai" },
-    { key: "bangalore", label: "Bangalore" },
-    { key: "chennai", label: "Chennai" },
-    { key: "kolkata", label: "Kolkata" },
-    { key: "hyderabad", label: "Hyderabad" },
-  ];
+  useEffect(()=>{
+    setSearchTerm(search);
+    console.log("searchTermhj",search);
+  },[search])
+
+  // Fetch states from API when component mounts
+  useEffect(() => {
+    const fetchStates = async () => {
+      setIsLoadingStates(true);
+      try {
+        const countryId = localStorage.getItem("countryId") || "101"; 
+        const response = await requestAPI(
+          "GET", 
+          `/location/countries/${countryId}/states`,
+          null,
+          { showErrorToast: false } // Don't show error toast for this request
+        );
+        console.log("countryId",countryId)
+        console.log("response from states",response)
+        if (response && response.data) {
+          console.log("response.data",response.data)
+          // Transform the API response into the format needed for the dropdown
+          const stateOptions = response.data.map(state => ({
+            key: state.name, // Use state name as key for API request
+            label: state.name, // Display name to user
+            id: state.id      // Keep ID for reference if needed
+          }));
+          console.log("stateOptions",stateOptions)
+          
+          setStates(stateOptions);
+          
+          // If states are loaded and no location is selected yet, select the first one
+          if (stateOptions.length > 0 && !location) {
+            const selectedLocation = localStorage.getItem("selectedLocation") || stateOptions[0].key;
+            const selectedLocationID = localStorage.getItem("selectedLocationId") || stateOptions[0].id;
+              setLocation(selectedLocation);
+            
+            if (onLocationChange) {
+              console.log("got changed id");
+              onLocationChange(selectedLocation);
+              onLocationIdChange(selectedLocationID);
+            }
+          }
+        } else {
+          // If API fails, set some default states
+          setStates([
+            { key: "Delhi", label: "Delhi" },
+            { key: "Maharashtra", label: "Maharashtra" },
+            { key: "Karnataka", label: "Karnataka" },
+            { key: "Tamil Nadu", label: "Tamil Nadu" },
+            { key: "Jammu and Kashmir", label: "Jammu and Kashmir" }
+          ]);
+          
+          // Set default location
+          if (!location) {
+            setLocation("Jammu and Kashmir");
+            if (onLocationChange) {
+              onLocationChange("Jammu and Kashmir");
+
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching states:", err);
+        // Fallback states if API fails
+        setStates([
+          { key: "Delhi", label: "Delhi" },
+          { key: "Maharashtra", label: "Maharashtra" },
+          { key: "Karnataka", label: "Karnataka" },
+          { key: "Tamil Nadu", label: "Tamil Nadu" },
+          { key: "Jammu and Kashmir", label: "Jammu and Kashmir" }
+        ]);
+        
+        // Set default location
+        if (!location) {
+          setLocation("Jammu and Kashmir");
+          if (onLocationChange) {
+            onLocationChange("Jammu and Kashmir");
+          }
+        }
+      } finally {
+        setIsLoadingStates(false);
+      }
+    };
+
+    fetchStates();
+  }, []);
 
   const handleSearch = () => {
-    console.log("Searching for:", searchTerm, "in", location);
-    // Implementation for search functionality
+    if(category){
+      navigate(`/listings/${searchTerm}/${category}/${catId}`)
+    }
+    else{
+      navigate(`/listings/search/${searchTerm}`);
+    }
+  };
+
+  const handleLocationChange = (value) => {
+    const selectedLocation = value.target ? value.target.value : value.currentKey;
+    console.log("Location changed to:", selectedLocation);
+    setLocation(selectedLocation);
+  
+    const selectedState = states.find(state => state.key === selectedLocation);
+    if (onLocationChange) {
+      onLocationChange(selectedLocation);
+    }
+    if (onLocationIdChange && selectedState) {
+      onLocationIdChange(selectedState.id);
+    }
   };
 
   return (
-    <div className={` flex px-4 sm:px-0 ${containerClassName}`}>
+    <div className={`flex px-4 sm:px-0 ${containerClassName}`}>
       {/* Desktop Version - Horizontal layout */}
       <div 
         className={`hidden md:flex items-center bg-white rounded-full shadow overflow-hidden border border-[#006C54] ${className}`}
@@ -53,7 +157,7 @@ const SearchBar = ({ className = "", containerClassName = "", width }) => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full h-full pl-2 border-0 shadow-none focus:ring-0 text-base "
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch(e.target.value)}
             
           />
         </div>
@@ -64,9 +168,9 @@ const SearchBar = ({ className = "", containerClassName = "", width }) => {
         {/* Location Dropdown */}
         <div className="flex items-center w-[25%] py-1 px-2">
           <Select
-            defaultSelectedKeys={["srinagar"]}
+            selectedKeys={location ? [location] : []}
             selectionMode="single"
-            onChange={(value) => setLocation(value.currentKey)}
+            onChange={handleLocationChange}
             className="border-0 shadow-none focus:ring-0"
             classNames={{
               trigger: "h-full flex items-center",
@@ -78,12 +182,15 @@ const SearchBar = ({ className = "", containerClassName = "", width }) => {
                 base: "text-sm",
               }
             }}
+            placeholder={isLoadingStates ? "Loading..." : "Select location"}
+            startContent={isLoadingStates ? <Spinner size="sm" /> : null}
             aria-label="Select location"
+            isDisabled={isLoadingStates}
             indicator={<FontAwesomeIcon icon={faChevronDown} className="text-gray-700 ml-2" />}
           >
-            {locations.map((loc) => (
-              <SelectItem key={loc.key} value={loc.key} textValue={loc.label}>
-                {loc.label}
+            {states.map((state) => (
+              <SelectItem key={state.key} value={state.key} textValue={state.label}>
+                {state.label}
               </SelectItem>
             ))}
           </Select>
@@ -105,7 +212,7 @@ const SearchBar = ({ className = "", containerClassName = "", width }) => {
             type="text"
             placeholder="Search to buy"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             className="w-full h-full pl-2 border-0 shadow-none focus:ring-0 text-sm"
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           />
@@ -114,9 +221,9 @@ const SearchBar = ({ className = "", containerClassName = "", width }) => {
         {/* Location Dropdown */}
         <div className="flex bg-white rounded-xl shadow border border-[#006C54] overflow-hidden">
           <Select
-            defaultSelectedKeys={["srinagar"]}
+            selectedKeys={location ? [location] : []}
             selectionMode="single"
-            onChange={(value) => setLocation(value.currentKey)}
+            onChange={handleLocationChange}
             className="w-full border-0 shadow-none focus:ring-0"
             classNames={{
               trigger: "h-full py-2 px-4 flex items-center",
@@ -128,12 +235,15 @@ const SearchBar = ({ className = "", containerClassName = "", width }) => {
                 base: "text-sm",
               }
             }}
+            placeholder={isLoadingStates ? "Loading..." : "Select location"}
+            startContent={isLoadingStates ? <Spinner size="sm" /> : null}
             aria-label="Select location"
+            isDisabled={isLoadingStates}
             indicator={<FontAwesomeIcon icon={faChevronDown} className="text-gray-700 ml-2" />}
           >
-            {locations.map((loc) => (
-              <SelectItem key={loc.key} value={loc.key} textValue={loc.label}>
-                {loc.label}
+            {states.map((state) => (
+              <SelectItem key={state.key} value={state.key} textValue={state.label}>
+                {state.label}
               </SelectItem>
             ))}
           </Select>
@@ -143,7 +253,7 @@ const SearchBar = ({ className = "", containerClassName = "", width }) => {
         <Button 
           color="primary" 
           className="bg-[#006C54] rounded-lg h-10 mt-1 text-md font-[400]"
-          onPress={handleSearch}
+          onPress={() => navigate(`/search/${location}/${searchTerm}`)}
         >
           {/* <FontAwesomeIcon icon={faSearch} className="mr-2" /> */}
           Search
@@ -153,4 +263,4 @@ const SearchBar = ({ className = "", containerClassName = "", width }) => {
   );
 };
 
-export default SearchBar; 
+export default SearchBar;

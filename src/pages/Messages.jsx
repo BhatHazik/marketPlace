@@ -963,6 +963,8 @@ const Messages = () => {
         socket.off('typing_status');
         socket.off('user_blocked');
         socket.off('blocked_by_user');
+        socket.off('user_unblocked');
+        socket.off('unblocked_by_user');
       }
     };
     
@@ -1172,6 +1174,7 @@ const Messages = () => {
             console.log('Automatically marking incoming message as seen:', messageData.id);
             // Small delay to ensure message is processed first
             setTimeout(() => {
+              console.log(`Emitting seen for message ID ${messageData.id}`);
               SocketService.emitMessageSeen(messageData.id);
             }, 500);
           }
@@ -1308,37 +1311,34 @@ const Messages = () => {
           blockedUserId: blockData.blockedUserId,
           selectedChatUserId: selectedChat?.userId || currentChat?.user?.id,
           currentChatId: currentChat?.id,
-          isMatch: selectedChat && 
-            (parseInt(blockData.blockedUserId) === parseInt(selectedChat.userId || currentChat?.user?.id))
+          currentChat
         });
         
-        if (selectedChat && 
-            (parseInt(blockData.blockedUserId) === parseInt(selectedChat.userId || currentChat?.user?.id))) {
+        // Check if this block event applies to the current chat
+        const isCurrentChat = currentChat?.user?.id === parseInt(blockData.blockedUserId) || 
+                              (typeof selectedChat === 'object' && selectedChat.userId === parseInt(blockData.blockedUserId)) ||
+                              chatData.find(chat => chat.id === parseInt(selectedChat))?.user?.id === parseInt(blockData.blockedUserId);
+        
+        if (isCurrentChat) {
           setIsUserBlocked(true);
           
-          // Update the selected chat with blocked status
-          setSelectedChat(prevChat => ({
-            ...prevChat,
-            isBlocked: true
-          }));
+          // Don't update entire selected chat object, just set the block flag
+          // This preserves other chat data including user profile information
           
           // Find the chat in the chat list and update its BlockedByMe status
-          const chatId = selectedChat.id || currentChat?.id;
-          if (chatId) {
-            setChatData(prevChats => 
-              prevChats.map(chat => {
-                // Find the chat that contains the blocked user
-                const chatContainsBlockedUser = chat.user && 
-                  String(chat.user.id) === String(blockData.blockedUserId);
-                
-                if (chatContainsBlockedUser) {
-                  console.log(`Updating BlockedByMe status for chat ${chat.id}`);
-                  return { ...chat, BlockedByMe: true };
-                }
-                return chat;
-              })
-            );
-          }
+          setChatData(prevChats => 
+            prevChats.map(chat => {
+              // Find the chat that contains the blocked user
+              const chatContainsBlockedUser = chat.user && 
+                String(chat.user.id) === String(blockData.blockedUserId);
+              
+              if (chatContainsBlockedUser) {
+                console.log(`Updating BlockedByMe status for chat ${chat.id}`);
+                return { ...chat, BlockedByMe: true };
+              }
+              return chat;
+            })
+          );
           
           toast.success("User has been blocked");
         }
@@ -1354,39 +1354,110 @@ const Messages = () => {
           blockingUserId: blockData.userId,
           selectedChatUserId: selectedChat?.userId || currentChat?.user?.id,
           currentChatId: currentChat?.id,
-          isMatch: selectedChat && 
-            (parseInt(blockData.userId) === parseInt(selectedChat.userId || currentChat?.user?.id))
+          currentChat
         });
         
-        if (selectedChat && 
-            (parseInt(blockData.userId) === parseInt(selectedChat.userId || currentChat?.user?.id))) {
+        // Check if this block event applies to the current chat
+        const isCurrentChat = currentChat?.user?.id === parseInt(blockData.userId) || 
+                              (typeof selectedChat === 'object' && selectedChat.userId === parseInt(blockData.userId)) ||
+                              chatData.find(chat => chat.id === parseInt(selectedChat))?.user?.id === parseInt(blockData.userId);
+        
+        if (isCurrentChat) {
           setIsBlockedByUser(true);
           
-          // Update the selected chat with blocked status
-          setSelectedChat(prevChat => ({
-            ...prevChat,
-            isBlockedByUser: true
-          }));
+          // Don't update entire selected chat object, just set the block flag
+          // This preserves other chat data including user profile information
           
           // Find the chat in the chat list and update its BlockedMe status
-          const chatId = selectedChat.id || currentChat?.id;
-          if (chatId) {
-            setChatData(prevChats => 
-              prevChats.map(chat => {
-                // Find the chat that contains the user who blocked this user
-                const chatContainsBlockingUser = chat.user && 
-                  String(chat.user.id) === String(blockData.userId);
-                
-                if (chatContainsBlockingUser) {
-                  console.log(`Updating BlockedMe status for chat ${chat.id}`);
-                  return { ...chat, BlockedMe: true };
-                }
-                return chat;
-              })
-            );
-          }
+          setChatData(prevChats => 
+            prevChats.map(chat => {
+              // Find the chat that contains the user who blocked this user
+              const chatContainsBlockingUser = chat.user && 
+                String(chat.user.id) === String(blockData.userId);
+              
+              if (chatContainsBlockingUser) {
+                console.log(`Updating BlockedMe status for chat ${chat.id}`);
+                return { ...chat, BlockedMe: true };
+              }
+              return chat;
+            })
+          );
           
           toast.error("You have been blocked by this user");
+        }
+      });
+      
+      // Listen for user_unblocked event
+      SocketService.onUserUnblocked((unblockData) => {
+        console.log("User unblocked confirmation received:", unblockData);
+        
+        // Verify we have valid data
+        if (!unblockData || !unblockData.unblockedUserId) {
+          console.error('Invalid unblock data received:', unblockData);
+          return;
+        }
+        
+        // Check if this unblock event applies to the current chat
+        const isCurrentChat = currentChat?.user?.id === parseInt(unblockData.unblockedUserId) || 
+                              (typeof selectedChat === 'object' && selectedChat.userId === parseInt(unblockData.unblockedUserId)) ||
+                              chatData.find(chat => chat.id === parseInt(selectedChat))?.user?.id === parseInt(unblockData.unblockedUserId);
+        
+        if (isCurrentChat) {
+          // Update the blocked status in the UI
+          setIsUserBlocked(false);
+          
+          // Find the chat in the chat list and update its BlockedByMe status
+          setChatData(prevChats => 
+            prevChats.map(chat => {
+              // Find the chat that contains the unblocked user
+              const chatContainsUnblockedUser = chat.user && 
+                String(chat.user.id) === String(unblockData.unblockedUserId);
+              
+              if (chatContainsUnblockedUser) {
+                return { ...chat, BlockedByMe: false };
+              }
+              return chat;
+            })
+          );
+          
+          toast.success("User has been unblocked");
+        }
+      });
+      
+      // Handler for when current user is unblocked by someone else
+      SocketService.onUnblockedByUser((unblockData) => {
+        console.log("Unblocked by user notification received:", unblockData);
+        
+        // Verify we have valid data
+        if (!unblockData || !unblockData.userId) {
+          console.error('Invalid unblock data received:', unblockData);
+          return;
+        }
+        
+        // Check if this unblock event applies to the current chat
+        const isCurrentChat = currentChat?.user?.id === parseInt(unblockData.userId) || 
+                              (typeof selectedChat === 'object' && selectedChat.userId === parseInt(unblockData.userId)) ||
+                              chatData.find(chat => chat.id === parseInt(selectedChat))?.user?.id === parseInt(unblockData.userId);
+        
+        if (isCurrentChat) {
+          // Update the blocked status in the UI
+          setIsBlockedByUser(false);
+          
+          // Find the chat in the chat list and update its BlockedMe status
+          setChatData(prevChats => 
+            prevChats.map(chat => {
+              // Find the chat that contains the user who unblocked this user
+              const chatContainsUnblockingUser = chat.user && 
+                String(chat.user.id) === String(unblockData.userId);
+              
+              if (chatContainsUnblockingUser) {
+                return { ...chat, BlockedMe: false };
+              }
+              return chat;
+            })
+          );
+          
+          toast.info("You have been unblocked");
         }
       });
     }
@@ -2139,7 +2210,7 @@ const Messages = () => {
             <CardBody className="text-center py-8">
               <div className="mb-4 text-gray-400">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-16 h-16 mx-auto">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
                 </svg>
               </div>
               <h3 className="text-2xl font-bold mb-2">Your Messages</h3>
@@ -2558,7 +2629,7 @@ const Messages = () => {
                               className="text-gray-500 text-xl"
                             />
                           )}
-                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center">
                             <Button 
                               isIconOnly 
                               size="sm" 
@@ -2755,16 +2826,31 @@ const Messages = () => {
   // Function to block a user
   const handleBlockUser = () => {
     if (!selectedChat) return;
+
+    console.log(selectedChat, chatData)
+    
+    // Find selected chat data from the chatData array to get the user ID
+    let selectedChatData = chatData.find(chat => chat.id === parseInt(selectedChat));
+    
+    // Get the correct user ID using multiple fallback options
+    let blockedUserId = selectedChatData?.user?.id || 
+                           currentChat?.user?.id || 
+                           (typeof selectedChat === 'object' ? selectedChat.userId : null);
+
+    //                        const selectedChatData = chatData.find(chat => chat.id === chatId);
+    // const blockedUserId = selectedChatData?.user?.id || null;
+    // if (!blockedUserId) {
+    //   toast.error('Could not block user - missing user ID');
+    //   return;
+    // }
     
     // Debug log
     console.log('Blocking user:', {
       selectedChat,
-      selectedUserId: selectedChat.userId || (currentChat?.user?.id),
-      chatId: selectedChat.id
+      selectedChatData,
+      currentChat,
+      blockedUserId
     });
-    
-    // Get the correct user ID - handle different data structures
-    const blockedUserId = selectedChat.userId || (currentChat?.user?.id);
     
     if (!blockedUserId) {
       console.error('Unable to determine which user to block');
@@ -2778,6 +2864,7 @@ const Messages = () => {
     // For better UX, update the UI immediately (optimistic update)
     // This will be overridden by the actual server response if it differs
     setIsUserBlocked(true);
+
     
     // Update the selected chat with blocked status
     setSelectedChat(prevChat => ({
@@ -2787,6 +2874,11 @@ const Messages = () => {
     
     // Show a toast to indicate the action is in progress
     toast.info('Blocking user...');
+    setSelectedChat(null)
+    navigate('/messages');
+    
+    window.location.reload();
+
     
     // UI will be confirmed when we receive the confirmation via onUserBlocked
   };
@@ -2795,20 +2887,33 @@ const Messages = () => {
   const handleUnblockUser = () => {
     if (!selectedChat) return;
     
-    // Get the correct user ID
-    const blockedUserId = selectedChat.userId || (currentChat?.user?.id);
+    // Find selected chat data from the chatData array to get the user ID
+    const selectedChatData = chatData.find(chat => chat.id === parseInt(selectedChat));
     
-    if (!blockedUserId) {
+    // Get the correct user ID using multiple fallback options
+    let unblockedUserId = selectedChatData?.user?.id || 
+                             currentChat?.user?.id || 
+                             (typeof selectedChat === 'object' ? selectedChat.userId : null);
+    
+    // Debug log
+    console.log('Unblocking user:', {
+      selectedChat,
+      selectedChatData,
+      currentChat,
+      unblockedUserId
+    });
+    
+    if (!unblockedUserId) {
       console.error('Unable to determine which user to unblock');
       toast.error('Could not unblock user - missing user ID');
       return;
     }
     
-    // For a more complete implementation, you would emit an unblock event:
-    // SocketService.emitUnblockUser(blockedUserId);
-    // And wait for confirmation via the socket
+    // Emit the unblock_user event to the socket server
+    SocketService.emitUnblockUser(unblockedUserId);
     
-    // Update the UI state immediately for better UX
+    // Update the UI state immediately for better UX (optimistic update)
+    // This will be confirmed when the user_unblocked event is received
     setIsUserBlocked(false);
     
     // Update the selected chat with unblocked status
@@ -2817,19 +2922,11 @@ const Messages = () => {
       isBlocked: false
     }));
     
-    // Update the chat in the list to persist the change
-    const chatId = parseInt(selectedChat.id || currentChat?.id);
-    if (chatId) {
-      setChatData(prevChats => 
-        prevChats.map(chat => 
-          chat.id === chatId 
-            ? { ...chat, BlockedByMe: false } 
-            : chat
-        )
-      );
-    }
+    // Show a toast to indicate the action is in progress
+    toast.info('Unblocking user...');
+    window.location.reload();
     
-    toast.success("User has been unblocked");
+    // UI will be confirmed when we receive the confirmation via onUserUnblocked
   };
 
   return (

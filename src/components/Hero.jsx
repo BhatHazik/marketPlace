@@ -5,7 +5,7 @@ import SearchBar from "./SearchBar";
 import { Link } from "react-router-dom";
 import loginBackground from "../assets/loginBackground.png";
 
-const Hero = () => {
+const Hero = ({ onLocationChange, onLocationIdChange }) => {
   return (
     <div className="relative">
       {/* Background Image with Overlay */}
@@ -44,7 +44,12 @@ const Hero = () => {
           </div>
           
           {/* Search Bar */}
-          <SearchBar className="max-w-[600px] lg:w-[75%]" containerClassName="justify-center w-full"/>
+          <SearchBar 
+            className="max-w-[600px] lg:w-[75%]" 
+            containerClassName="justify-center w-full"
+            onLocationChange={onLocationChange}
+            onLocationIdChange={onLocationIdChange}
+          />
         </div>
       </div>
       

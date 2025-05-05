@@ -38,6 +38,7 @@ const OTP = () => {
       localStorage.setItem("token", response.token);
       localStorage.setItem("userCountry", country);
       localStorage.setItem("userId", response.user.id);
+      localStorage.setItem("countryId", response.country_id);
       
       // Connect to socket after successful login
       SocketService.connectSocket(response.token);

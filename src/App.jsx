@@ -101,7 +101,7 @@ export default function App() {
             <Route path="/postAd" element={<PostAd />} />
             <Route path="/post-ad/form" element={<PostAdForm />} />
             <Route path="/FlagSelect" element={<FlagSelect />} />
-            <Route path="/previewAd" element={<PreviewAd />} />
+            <Route path="/previewAd/:id" element={<PreviewAd />} />
             <Route path="/user-profile/:id" element={<UserProfile />} />
             <Route path="/messages" element={<Messages />} />
             <Route path="/messages/:id" element={<Messages />} />
@@ -109,7 +109,9 @@ export default function App() {
             <Route path="/terms" element={<TermsAndConditions/>}/>
             <Route path="/privacy" element={<Privacy/>}/>
             <Route path="/help" element={<Help/>}/>
-            <Route path="/listings" element={<Listings/>}/>
+            <Route path="/listings/category/:category?/:catId?" element={<Listings/>}/>
+            <Route path="/listings/search/:search?" element={<Listings/>}/>
+            <Route path="/listings/:search?/:category?/:catId?" element={<Listings />} />
             <Route path="/settings" element={<Settings/>}/>
             {/* Catch-all route for 404 page */}
             <Route path="*" element={<NotFound />} />
