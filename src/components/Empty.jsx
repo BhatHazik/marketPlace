@@ -1,12 +1,14 @@
 import { Card, CardBody, CardFooter } from "@heroui/react";
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import React from "react";
 
-const Empty = ({ message = "Not Found!"}) => {
+const Empty = ({ message = "Nothing Found Here ?"}) => {
+  
   return (
     <div className="w-full h-full flex justify-center items-center p-4">
-      <Card shadow="lg" className="w-full max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl">
-        <CardBody className="flex flex-col items-center justify-center gap-4 py-12">
-        <svg
+      <Card shadow="none" className="w-full max-w-md sm:max-w-lg md:max-w-xl lg:max-w-3xl bg-transparent flex flex-col items-center">
+        <CardBody className="flex flex-col border-t  items-center justify-center gap-4 py-5">
+        {/* <svg
           xmlns="http://www.w3.org/2000/svg"
           width="542.70323"
           height="324.78592"
@@ -290,10 +292,17 @@ const Empty = ({ message = "Not Found!"}) => {
             transform="translate(-168.64838 -127.60704)"
             fill="#2f2e41"
           />
-        </svg>
+        </svg> */}
+
+<DotLottieReact
+      src="https://lottie.host/45aff370-71df-4c3a-a256-7265b61d43e2/if0QCs6zBD.lottie"
+      loop
+      autoplay
+    />
         </CardBody>
-        <CardFooter className="border-t pt-4 flex justify-center">
-          <h1 className="font-bold text-xl sm:text-2xl app-text-green text-center">
+        <CardFooter className=" border-b pt-4 rounded-0 flex justify-center w-[50%] flex-col gap-2">
+          <div className="border-t w-[80%]"></div>
+          <h1 className="font-bold text-xl sm:text-2xl text-white text-center">
             {message}
           </h1>
         </CardFooter>

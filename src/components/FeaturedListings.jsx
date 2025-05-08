@@ -70,12 +70,12 @@ const FeaturedListings = ({ listings = [], isLoading = false, selectedLocation =
         <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
           {isLoading ? (
             renderSkeletons()
-          ) : filteredListings.length > 0 ? (
-            filteredListings.map((listing) => {
+          ) : filteredListings?.length > 0 ? (
+            filteredListings?.map((listing) => {
               // Extract necessary data from the listing
-              const title = getProductValue(listing.productValues, "Title");
-              const price = getProductValue(listing.productValues, "Price");
-              const photos = getProductValue(listing.productValues, "Photos");
+              const title = getProductValue(listing?.productValues, "Title");
+              const price = getProductValue(listing?.productValues, "Price");
+              const photos = getProductValue(listing?.productValues, "Photos");
               const imageUrl = photos && photos.length > 0 
                 ? `${BASE_URL}/${photos[0]}`
                 : null;

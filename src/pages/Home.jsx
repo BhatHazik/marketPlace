@@ -60,6 +60,7 @@ const Home = () => {
         // Sort listings into featured and fresh
         const featured = listings.filter(listing => listing.is_sponsored);
         const fresh = listings.filter(listing => !listing.is_sponsored);
+        console.log("fresh",fresh)
         
         setFeaturedListings(featured);
         setFreshListings(fresh);
@@ -91,11 +92,6 @@ const Home = () => {
   return (
     <div>
       <Hero onLocationChange={handleLocationChange} onLocationIdChange={handleLocationIdChange} />
-      {error && (
-        <div className="container mx-auto px-4 py-4 text-center">
-          <p className="text-red-500">{error}</p>
-        </div>
-      )}
       <FeaturedListings 
         listings={featuredListings} 
         isLoading={isLoading} 

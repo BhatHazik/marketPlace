@@ -3,7 +3,9 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faHeart, faLocationDot } from "@fortawesome/free-solid-svg-icons";
 import { useState } from "react";
 import defaultImage from "../assets/placeholder-image.jpg";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import BASE_URL from "../config/url.config";
+import ActivePlansModal from "../Modals/ActivePlansModal";
 
 export const HeartIcon = ({
   fill = "#FF0000",
@@ -41,13 +43,27 @@ const ProductCard = ({
   location,
   date,
   featured = false,
-  premium = false,
+  isSameUser = false,
+  sponsoredUntil,
 }) => {
   const navigate = useNavigate();
   const [imageError, setImageError] = useState(false);
-  const fallbackImage = "/placeholder-image.jpg"; // Create a placeholder image in your public folder
   const [hearted, sethearted] = useState(false);
-  console.log("productId", productId);
+  const [isFeaturedModal, setIsFeaturedModal] = useState(false);
+  const { id: userId } = useParams();
+  const {pathname} = useLocation();
+
+  console.log(
+    "product",
+    productId,
+    title,
+    price,
+    date,
+    location,
+    featured,
+    image,
+    sponsoredUntil
+  );
 
   const handleCardPress = (e) => {
     console.log("Navigating to: ", `/previewAd/${productId}`);
@@ -65,7 +81,7 @@ const ProductCard = ({
       >
         <div className="relative w-full h-48 overflow-hidden">
           <Image
-            src={imageError ? fallbackImage : defaultImage}
+            src={imageError ? defaultImage : `${BASE_URL}/${image}`}
             alt={title}
             className="w-full h-48 object-cover"
             style={{ display: "block" }}
@@ -99,7 +115,11 @@ const ProductCard = ({
           </div>
         )}
 
-        <div className="p-0 relative h-[150px] flex flex-col">
+        <div
+          className={`p-0 relative ${
+            localStorage.getItem("userId") === userId ? "h-[180px]" : "h-[150px]"
+          } flex flex-col`}
+        >
           {featured && (
             <div className="absolute h-[90%] py-2 bg-[#006C54] w-1 bottom-0"></div>
           )}
@@ -112,6 +132,29 @@ const ProductCard = ({
               {title}
             </h3>
           </div>
+
+
+{
+  pathname.startsWith("/user-profile")  &&
+<div className="flex items-center justify-between px-4 py-2 border-y mb-2">
+            {!featured && localStorage.getItem("userId") === userId ? (
+              <Button
+                variant="text"
+                color="default"
+                size="sm"
+                className={`text-xs sm:text-sm font-medium bg-[#006C54] text-white ${
+                  isSameUser ? "hidden" : ""
+                }`}
+                onPress={() => setIsFeaturedModal(true)}
+              >
+                Boost Ad
+              </Button>
+            ) : (
+              <p>Sponsored Until <span className="font-bold">{sponsoredUntil}</span></p>
+            ) }
+          </div>
+}
+          
 
           <div className="flex justify-between items-center px-4 pb-3 mt-auto">
             <div className="flex items-center text-gray-600 text-xs sm:text-sm">
@@ -126,6 +169,12 @@ const ProductCard = ({
           </div>
         </div>
       </Card>
+
+      <ActivePlansModal
+        isOpen={isFeaturedModal}
+        onClose={() => setIsFeaturedModal(false)}
+        productId={productId}
+      />
     </div>
   );
 };

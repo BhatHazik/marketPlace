@@ -26,7 +26,7 @@ const SearchBar = ({ className = "", containerClassName = "", width, onLocationC
 
   useEffect(()=>{
     setSearchTerm(search);
-    console.log("searchTermhj",search);
+    console.log("searchTerm",search);
   },[search])
 
   // Fetch states from API when component mounts
@@ -113,11 +113,16 @@ const SearchBar = ({ className = "", containerClassName = "", width, onLocationC
   }, []);
 
   const handleSearch = () => {
-    if(category){
-      navigate(`/listings/${searchTerm}/${category}/${catId}`)
+    const term = searchTerm.trim();
+    if (!term) {
+      navigate("/listings/search");
+      return;
     }
-    else{
-      navigate(`/listings/search/${searchTerm}`);
+  
+    if (category) {
+      navigate(`/listings/${term}/${category}/${catId}`);
+    } else {
+      navigate(`/listings/search/${term}`);
     }
   };
 
@@ -212,7 +217,7 @@ const SearchBar = ({ className = "", containerClassName = "", width, onLocationC
             type="text"
             placeholder="Search to buy"
             value={searchTerm}
-            onChange={(e) => handleSearch(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full h-full pl-2 border-0 shadow-none focus:ring-0 text-sm"
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           />
@@ -253,7 +258,7 @@ const SearchBar = ({ className = "", containerClassName = "", width, onLocationC
         <Button 
           color="primary" 
           className="bg-[#006C54] rounded-lg h-10 mt-1 text-md font-[400]"
-          onPress={() => navigate(`/search/${location}/${searchTerm}`)}
+          onPress={handleSearch}
         >
           {/* <FontAwesomeIcon icon={faSearch} className="mr-2" /> */}
           Search

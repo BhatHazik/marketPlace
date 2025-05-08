@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Avatar, AvatarIcon, Button, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/react";
 import olxLogo from "../assets/olx_logo.png";
+// import olxLogo from "../assets/rayplace.png";
+
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus, faBars, faXmark, faMessage, faInbox } from "@fortawesome/free-solid-svg-icons";
 import { SocketService } from "../services/socket.service";
@@ -179,7 +181,7 @@ const Navbar = () => {
                 {category.subcategories.map((sub) => (
                   <li key={sub.id}>
                     <Link
-                      to={`/listings/category/${sub.name.toLowerCase().replace(/\s+/g, '-')}/${sub.id}`}
+                      to={`/listings/category/${sub.name}/${sub.id}`}
                       className="text-gray-700 hover:text-[#006C54]"
                     >
                       {sub.name}
@@ -305,7 +307,7 @@ const Navbar = () => {
                       />
                     </DropdownTrigger>
                     <DropdownMenu aria-label="Profile Actions">
-                    <DropdownItem key="profile" textValue="My Profile"> <Link className="w-full h-full flex items-center justify-start" to="/user-profile/1">My Profile</Link></DropdownItem>
+                    <DropdownItem key="profile" textValue="My Profile"> <Link className="w-full h-full flex items-center justify-start" to={`/user-profile/${localStorage.getItem("userId")}`}>My Profile</Link></DropdownItem>
                     <DropdownItem key="settings" textValue="Settings"> <Link className="w-full h-full flex items-center justify-start" to="/settings">Settings</Link></DropdownItem>
                     <DropdownItem key="my_ads" textValue="My Ads">My Ads</DropdownItem>
                     <DropdownItem key="saved" textValue="Saved">Saved Items</DropdownItem>

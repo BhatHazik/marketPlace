@@ -28,7 +28,7 @@ const UserProfile = () => {
   const [userData, setUserData] = useState({
     name: "User",
     is_verified: false,
-    total_products: 0,
+    total_products: 2,
     sold_products: 0
   });
   
@@ -227,7 +227,8 @@ const UserProfile = () => {
           location: item.productLocation ? `${item.productLocation.city}, ${item.productLocation.country}` : "Unknown",
           date: new Date(item.createdAt || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
           status: item.status || "pending",
-          featured: item.is_sponsored || false
+          featured: item.is_sponsored || false,
+          sponsored_until: new Date(item.sponsored_until || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         }));
         
         setListings(transformedListings);
@@ -378,7 +379,7 @@ const UserProfile = () => {
                 <Button     
                   className="bg-[#006C54] text-white hover:bg-[#005743] m-0"
                   startContent={<FontAwesomeIcon icon={faMessage} />}
-                  onPress={() => handleMessageClick(43)}
+                  onPress={() => handleMessageClick(53)}
                 >
                   Message
                 </Button>
@@ -464,12 +465,14 @@ const UserProfile = () => {
             {getPaginatedListings().map((listing) => (
               <ProductCard
                 key={listing.id}
+                productId={listing.id}
                 image={listing.image}
                 title={listing.title}
                 price={listing.price}
                 location={listing.location}
                 date={listing.date}
                 featured={listing.featured}
+                sponsoredUntil={listing.sponsored_until}
               />
             ))}
           </div>

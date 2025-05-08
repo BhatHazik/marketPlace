@@ -1,6 +1,7 @@
 import { HeroUIProvider } from "@heroui/react";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { useNetwork } from "react-haiku";
 
 // Import components
 import Navbar from "./components/Navbar";
@@ -40,9 +41,7 @@ const Layout = ({ children }) => {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {!hideNavbarRoutes.includes(location.pathname) && <Navbar />}
       <div
-        className={`flex-grow ${
-          !hideNavbarRoutes.includes(location.pathname) ? "main-content" : ""
-        }`}
+        className={`flex-grow ${!hideNavbarRoutes.includes(location.pathname) ? "main-content" : ""}`}
       >
         {children}
       </div>
@@ -53,6 +52,8 @@ const Layout = ({ children }) => {
 };
 
 export default function App() {
+  const isOnline = useNetwork();
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -63,6 +64,25 @@ export default function App() {
       SocketService.disconnectSocket();
     };
   }, []);
+
+  useEffect(() => {
+    // Preload image and cache it silently
+    const img = new Image();
+    img.src = '/offline.jpg'; // Image from public folder
+  }, []);
+
+  // Render fallback image if offline
+  if (!isOnline) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        <img
+          src="/offline.jpg"
+          alt="Offline"
+          className="w-full max-w-md p-4"
+        />
+      </div>
+    );
+  }
 
   return (
     <HeroUIProvider>
@@ -105,14 +125,14 @@ export default function App() {
             <Route path="/user-profile/:id" element={<UserProfile />} />
             <Route path="/messages" element={<Messages />} />
             <Route path="/messages/:id" element={<Messages />} />
-            <Route path="/about" element={<About/>}/>
-            <Route path="/terms" element={<TermsAndConditions/>}/>
-            <Route path="/privacy" element={<Privacy/>}/>
-            <Route path="/help" element={<Help/>}/>
-            <Route path="/listings/category/:category?/:catId?" element={<Listings/>}/>
-            <Route path="/listings/search/:search?" element={<Listings/>}/>
+            <Route path="/about" element={<About />} />
+            <Route path="/terms" element={<TermsAndConditions />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/help" element={<Help />} />
+            <Route path="/listings/category/:category?/:catId?" element={<Listings />} />
+            <Route path="/listings/search/:search?" element={<Listings />} />
             <Route path="/listings/:search?/:category?/:catId?" element={<Listings />} />
-            <Route path="/settings" element={<Settings/>}/>
+            <Route path="/settings" element={<Settings />} />
             {/* Catch-all route for 404 page */}
             <Route path="*" element={<NotFound />} />
           </Routes>
