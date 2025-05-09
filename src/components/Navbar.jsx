@@ -310,7 +310,7 @@ const Navbar = () => {
                     <DropdownItem key="profile" textValue="My Profile"> <Link className="w-full h-full flex items-center justify-start" to={`/user-profile/${localStorage.getItem("userId")}`}>My Profile</Link></DropdownItem>
                     <DropdownItem key="settings" textValue="Settings"> <Link className="w-full h-full flex items-center justify-start" to="/settings">Settings</Link></DropdownItem>
                     <DropdownItem key="my_ads" textValue="My Ads">My Ads</DropdownItem>
-                    <DropdownItem key="saved" textValue="Saved">Saved Items</DropdownItem>
+                    <DropdownItem key="saved" textValue="Saved"><Link className="w-full h-full flex items-center justify-start" to="/wishlist">Wishlist</Link></DropdownItem>
                     <DropdownItem 
                       key="logout" 
                       textValue="Logout"
@@ -318,7 +318,7 @@ const Navbar = () => {
                       onPress={() => {
                         // Disconnect socket before logout
                         SocketService.disconnectSocket();
-                        localStorage.removeItem("token");
+                        localStorage.clear();
                         navigate("/");
                       }}
                     >
@@ -382,10 +382,10 @@ const Navbar = () => {
                       />
                     </DropdownTrigger>
                     <DropdownMenu aria-label="Profile Actions">
-                    <DropdownItem key="profile" textValue="My Profile"> <Link className="w-full h-full flex items-center justify-start" to="/user-profile/1">My Profile</Link></DropdownItem>
+                    <DropdownItem key="profile" textValue="My Profile"> <Link className="w-full h-full flex items-center justify-start" to={`/user-profile/${localStorage.getItem("userId")}`}>My Profile</Link></DropdownItem>
                     <DropdownItem key="settings" textValue="Settings"> <Link className="w-full h-full flex items-center justify-start" to="/settings">Settings</Link></DropdownItem>
                     <DropdownItem key="my_ads" textValue="My Ads">My Ads</DropdownItem>
-                    <DropdownItem key="saved" textValue="Saved">Saved Items</DropdownItem>
+                    <DropdownItem key="saved" textValue="Saved"><Link className="w-full h-full flex items-center justify-start" to="/wishlist">Wishlist</Link></DropdownItem>
                     <DropdownItem 
                       key="logout" 
                       textValue="Logout"
@@ -394,6 +394,7 @@ const Navbar = () => {
                         // Disconnect socket before logout
                         SocketService.disconnectSocket();
                         localStorage.removeItem("token");
+                        localStorage.removeItem("userId");
                         navigate("/");
                       }}
                     >
@@ -418,63 +419,62 @@ const Navbar = () => {
         }}
       >
         <div className="px-4 pt-2 pb-4 space-y-2">
-          {/* {!token && (
-            <Link 
-              to="/login" 
-              className="block py-2 px-4 text-gray-700 hover:bg-[#006c554e] hover:text-white rounded-md"
-            >
-              Login
-            </Link>
-          )} */}
-          {/* <div className="py-1 border-t border-gray-200"></div> */}
+          {/* Dynamic Categories and Subcategories */}
           <div className="font-bold text-gray-700 py-2">Explore</div>
-          <Link 
-            to="/category/electronics" 
-            className="block py-2 px-4 text-gray-700 hover:bg-[#006c554e] hover:text-white rounded-md"
-          >
-            Electronics
-          </Link>
-          <Link 
-            to="/category/vehicles" 
-            className="block py-2 px-4 text-gray-700 hover:bg-[#006c554e] hover:text-white rounded-md"
-          >
-            Vehicles
-          </Link>
-          <Link 
-            to="/category/property" 
-            className="block py-2 px-4 text-gray-700 hover:bg-[#006c554e] hover:text-white rounded-md"
-          >
-            Property
-          </Link>
-          <Link 
-            to="/category/furniture" 
-            className="block py-2 px-4 text-gray-700 hover:bg-[#006c554e] hover:text-white rounded-md"
-          >
-            Furniture
-          </Link>
+          
+          {categories?.length > 0 ? (
+            categories.map((category) => (
+              <div key={category.id} className="mb-4">
+                <div className="font-semibold text-gray-700 py-1 pl-2">{category.name}</div>
+                {category.subcategories.length > 0 ? (
+                  <div className="pl-4">
+                    {category.subcategories.map((sub) => (
+                      <Link 
+                        key={sub.id}
+                        to={`/listings/category/${sub.name}/${sub.id}`} 
+                        className="block py-2 px-4 text-gray-700 hover:bg-[#006c554e] hover:text-white rounded-md"
+                        onClick={() => setIsMobileMenuOpen(false)} // Close menu after selection
+                      >
+                        {sub.name}
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 pl-4">No subcategories</p>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="py-2 pl-4 text-gray-500">Loading categories...</div>
+          )}
+          
           <div className="py-1 border-t border-gray-200"></div>
           <div className="font-bold text-gray-700 py-2">Today's Deals</div>
           <Link 
             to="/location/newyork" 
             className="block py-2 px-4 text-gray-700 hover:bg-[#006c554e] hover:text-white rounded-md"
+            onClick={() => setIsMobileMenuOpen(false)}
           >
             New York
           </Link>
           <Link 
             to="/location/losangeles" 
             className="block py-2 px-4 text-gray-700 hover:bg-[#006c554e] hover:text-white rounded-md"
+            onClick={() => setIsMobileMenuOpen(false)}
           >
             Los Angeles
           </Link>
           <Link 
             to="/location/chicago" 
             className="block py-2 px-4 text-gray-700 hover:bg-[#006c554e] hover:text-white rounded-md"
+            onClick={() => setIsMobileMenuOpen(false)}
           >
             Chicago
           </Link>
           <Link 
             to="/location/houston" 
             className="block py-2 px-4 text-gray-700 hover:bg-[#006c554e] hover:text-white rounded-md"
+            onClick={() => setIsMobileMenuOpen(false)}
           >
             Houston
           </Link>

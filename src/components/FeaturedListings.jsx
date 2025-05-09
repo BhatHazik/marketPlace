@@ -1,22 +1,58 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ProductCard from "./ProductCard";
 import { Button, Tabs, Tab, Skeleton, Card } from "@heroui/react";
 import { Link } from "react-router-dom";
 import BASE_URL from "../config/url.config";
+import UseAPI from "../hooks/UseAPI";
 
 const FeaturedListings = ({ listings = [], isLoading = false, selectedLocation = "" }) => {
   const [activeCategory, setActiveCategory] = useState("all");
+  const [featuredListings, setFeaturedListings] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const { requestAPI } = UseAPI();
 
   // Function to extract specific values from productValues array
   const getProductValue = (productValues, attributeName) => {
-    const attribute = productValues?.find(attr => attr.attribute_name === attributeName);
-    return attribute ? attribute.value : null;
+    if (!productValues) return null;
+    return productValues[attributeName] || null;
   };
+
+  // Function to get the correct image URL
+  const getImageUrl = (photoPath) => {
+    if (!photoPath) return null;
+    // Remove leading slash if present
+    const cleanPath = photoPath.startsWith('/') ? photoPath.slice(1) : photoPath;
+    return `${BASE_URL}/${cleanPath}`;
+  };
+
+  // Fetch listings when location changes
+  useEffect(() => {
+    const fetchListings = async () => {
+      if (!selectedLocation) return;
+      
+      setLoading(true);
+      try {
+        const response = await requestAPI('GET', `/listings/search/${selectedLocation}`, null, { showErrorToast: false });
+        
+        if (response && response.status === "success" && response.data) {
+          // Filter for featured listings (is_sponsored)
+          const featured = response.data.filter(listing => listing.is_sponsored);
+          setFeaturedListings(featured);
+        }
+      } catch (error) {
+        console.error("Error fetching featured listings:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchListings();
+  }, [selectedLocation]);
 
   // Filter products based on active category if we have subcategory data
   const filteredListings = activeCategory === 'all' 
-    ? listings 
-    : listings.filter(listing => {
+    ? featuredListings 
+    : featuredListings.filter(listing => {
         // Get category from subcategory data if available
         const category = listing.subcategory?.parent_category?.name?.toLowerCase();
         return category === activeCategory;
@@ -68,7 +104,7 @@ const FeaturedListings = ({ listings = [], isLoading = false, selectedLocation =
       {/* Full width product grid with container only for the grid itself */}
       <div className="container mx-auto px-3 md:px-4">
         <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-          {isLoading ? (
+          {loading ? (
             renderSkeletons()
           ) : filteredListings?.length > 0 ? (
             filteredListings?.map((listing) => {
@@ -77,19 +113,20 @@ const FeaturedListings = ({ listings = [], isLoading = false, selectedLocation =
               const price = getProductValue(listing?.productValues, "Price");
               const photos = getProductValue(listing?.productValues, "Photos");
               const imageUrl = photos && photos.length > 0 
-                ? `${BASE_URL}/${photos[0]}`
+                ? getImageUrl(photos[0])
                 : null;
               
               return (
                 <ProductCard
                   key={listing.id}
                   productId={listing.id}
-                  image={imageUrl}
+                  image={listing.productValues?.Photos[0]}
                   title={title || "No title available"}
                   price={price || 0}
                   location={`${listing.productLocation?.city || ""}, ${listing.productLocation?.state || ""}`}
                   date={new Date(listing.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  featured={true} // These are all featured listings
+                  featured={listing.is_sponsored}
+                  wishlisted={listing.isWishlisted}
                 />
               );
             })

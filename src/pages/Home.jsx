@@ -6,6 +6,7 @@ import FreshListings from "../components/FreshListings";
 import BrandSection from "../components/BrandSection";
 import PostAdSection from "../components/PostAdSection";
 import UseAPI from "../hooks/UseAPI";
+import GeoLocationModal from "../components/GeoLocationModal";
 
 
 
@@ -16,6 +17,7 @@ const Home = () => {
   const [freshListings, setFreshListings] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [detectedLocation, setDetectedLocation] = useState(null);
   const { requestAPI } = UseAPI();
 
 
@@ -34,6 +36,11 @@ const Home = () => {
   const handleLocationIdChange = (location) => {
     console.log("Location id changed in Home:", location);
     localStorage.setItem("selectedLocationId",location);
+  };
+  
+  const handleDetectedLocation = (location) => {
+    console.log("Location detected from geolocation:", location);
+    setDetectedLocation(location);
   };
 
   // Function to fetch listings based on selected location
@@ -91,7 +98,12 @@ const Home = () => {
 
   return (
     <div>
-      <Hero onLocationChange={handleLocationChange} onLocationIdChange={handleLocationIdChange} />
+      <GeoLocationModal onLocationDetected={handleDetectedLocation} />
+      <Hero 
+        onLocationChange={handleLocationChange} 
+        onLocationIdChange={handleLocationIdChange} 
+        detectedLocation={detectedLocation}
+      />
       <FeaturedListings 
         listings={featuredListings} 
         isLoading={isLoading} 

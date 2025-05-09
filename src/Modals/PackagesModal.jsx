@@ -206,7 +206,7 @@ const PackagesModal = ({ isOpen, onClose, businessPackages = {}, productId }) =>
     if (!orderData) return;
 
     const options = {
-      key: "rzp_test_c4VrwehUSLESCP", // Replace with your actual Razorpay key
+      key: VITE_RAZORPAY, // Replace with your actual Razorpay key
       amount: orderData.amount, // Razorpay expects amount in paise
       currency: orderData.currency,
       name: "OLX Business Package",

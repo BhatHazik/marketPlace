@@ -6,7 +6,7 @@ import UseAPI from "../hooks/UseAPI";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 
-const SearchBar = ({ className = "", containerClassName = "", width, onLocationChange, onLocationIdChange}) => {
+const SearchBar = ({ className = "", containerClassName = "", width, onLocationChange, onLocationIdChange, detectedLocation }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [location, setLocation] = useState("");
   const [states, setStates] = useState([]);
@@ -27,7 +27,7 @@ const SearchBar = ({ className = "", containerClassName = "", width, onLocationC
   useEffect(()=>{
     setSearchTerm(search);
     console.log("searchTerm",search);
-  },[search])
+  },[search]);
 
   // Fetch states from API when component mounts
   useEffect(() => {
@@ -55,11 +55,33 @@ const SearchBar = ({ className = "", containerClassName = "", width, onLocationC
           
           setStates(stateOptions);
           
-          // If states are loaded and no location is selected yet, select the first one
-          if (stateOptions.length > 0 && !location) {
+          // If states are loaded and either detected from geolocation or default selection
+          if (stateOptions.length > 0) {
+            // First check for geolocation-detected state
+            if (detectedLocation) {
+              // Find the matching state in our list
+              const matchingState = stateOptions.find(
+                state => state.key.toLowerCase() === detectedLocation.toLowerCase()
+              );
+              
+              if (matchingState) {
+                setLocation(matchingState.key);
+                localStorage.setItem("selectedLocation", matchingState.key);
+                localStorage.setItem("selectedLocationId", matchingState.id);
+                
+                if (onLocationChange) {
+                  console.log("Location set from geolocation:", matchingState.key);
+                  onLocationChange(matchingState.key);
+                  onLocationIdChange(matchingState.id);
+                }
+                return; // Exit early as we've set the location
+              }
+            }
+            
+            // If no geolocation match or no detectedLocation, use stored or default
             const selectedLocation = localStorage.getItem("selectedLocation") || stateOptions[0].key;
             const selectedLocationID = localStorage.getItem("selectedLocationId") || stateOptions[0].id;
-              setLocation(selectedLocation);
+            setLocation(selectedLocation);
             
             if (onLocationChange) {
               console.log("got changed id");
@@ -110,7 +132,7 @@ const SearchBar = ({ className = "", containerClassName = "", width, onLocationC
     };
 
     fetchStates();
-  }, []);
+  }, [detectedLocation]);
 
   const handleSearch = () => {
     const term = searchTerm.trim();

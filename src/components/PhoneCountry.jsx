@@ -32,12 +32,14 @@ const PhoneInput = ({
   onCountryChange,
   required = true,
   inputClassName = "",
+  isDisabled = false,
 }) => {
   const [selectedCountry, setSelectedCountry] = useState(
     countries.find((c) => c.code === countryValue) || countries[0]
   );
 
   const handleCountryChange = (keys) => {
+    if (isDisabled) return;
     const selected = countries.find((c) => c.key === [...keys][0]);
     setSelectedCountry(selected);
     onCountryChange(selected.code); // Send country code to parent
@@ -51,6 +53,7 @@ const PhoneInput = ({
         className="w-20 min-w-[60px] flex-shrink-0"
         selectedKeys={[selectedCountry.key]}
         onSelectionChange={handleCountryChange}
+        isDisabled={isDisabled}
         renderValue={() => (
           <Avatar
             className="w-6 h-6 rounded-full aspect-square"
@@ -77,14 +80,16 @@ const PhoneInput = ({
 
       {/* Phone Input */}
       <Input
-        className={`${inputClassName}`}
+        className={`${inputClassName} ${isDisabled ? "bg-gray-100 opacity-70" : ""}`}
         type="tel"
         placeholder="Enter phone number"
         value={phoneValue} // Ensure phoneValue is always a string
-        onChange={(e)=> onPhoneChange(e.target.value)}
+        onChange={(e) => isDisabled ? null : onPhoneChange(e.target.value)}
         variant="bordered"
         radius="sm"
         required={required}
+        isDisabled={isDisabled}
+        isReadOnly={isDisabled}
       />
     </div>
   );

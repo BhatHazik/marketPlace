@@ -6,6 +6,7 @@ import defaultImage from "../assets/placeholder-image.jpg";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import BASE_URL from "../config/url.config";
 import ActivePlansModal from "../Modals/ActivePlansModal";
+import UseAPI from "../hooks/UseAPI";
 
 export const HeartIcon = ({
   fill = "#FF0000",
@@ -45,13 +46,15 @@ const ProductCard = ({
   featured = false,
   isSameUser = false,
   sponsoredUntil,
+  wishlisted = false,
 }) => {
   const navigate = useNavigate();
   const [imageError, setImageError] = useState(false);
-  const [hearted, sethearted] = useState(false);
+  const [hearted, sethearted] = useState(wishlisted);
   const [isFeaturedModal, setIsFeaturedModal] = useState(false);
   const { id: userId } = useParams();
-  const {pathname} = useLocation();
+  const { pathname } = useLocation();
+  const { requestAPI } = UseAPI();
 
   console.log(
     "product",
@@ -68,6 +71,33 @@ const ProductCard = ({
   const handleCardPress = (e) => {
     console.log("Navigating to: ", `/previewAd/${productId}`);
     navigate(`/previewAd/${productId}`);
+  };
+
+  const handleWishlistToggle = async () => {
+    // HeroUI Button doesn't pass a standard event object to onPress
+    try {
+      if (!hearted) {
+        // Add to wishlist
+        sethearted(true);
+        const response = await requestAPI(
+          "POST",
+          `/listings/wishlist/add/${productId}`,
+          {},
+          { showErrorToast: false }
+        );
+      } else {
+        // Remove from wishlist
+        sethearted(false);
+        const response = await requestAPI(
+          "DELETE",
+          `/listings/wishlist/remove/${productId}`,
+          {},
+          { showErrorToast: false }
+        );
+      }
+    } catch (error) {
+      console.error("Wishlist toggle error:", error);
+    }
   };
 
   return (
@@ -91,19 +121,23 @@ const ProductCard = ({
             loading="lazy"
           />
 
-          {/* Heart Icon */}
-          <div className="absolute top-2 right-2 z-20">
-            <Button
-              onPress={() => sethearted(!hearted)}
-              isIconOnly
-              aria-label="Like"
-              size="sm"
-              radius="full"
-              color="default"
+          {localStorage.getItem("userId") && (
+            <div
+              className="absolute top-2 right-2 z-20"
+              onClick={(e) => e.stopPropagation()}
             >
-              <HeartIcon filled={hearted} size={"18"} />
-            </Button>
-          </div>
+              <Button
+                onPress={handleWishlistToggle}
+                isIconOnly
+                aria-label="Like"
+                size="sm"
+                radius="full"
+                color="default"
+              >
+                <HeartIcon filled={hearted} size={"18"} />
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Featured tag - below image, overlapping card content */}
@@ -117,7 +151,9 @@ const ProductCard = ({
 
         <div
           className={`p-0 relative ${
-            localStorage.getItem("userId") === userId ? "h-[180px]" : "h-[150px]"
+            localStorage.getItem("userId") === userId
+              ? "h-[180px]"
+              : "h-[150px]"
           } flex flex-col`}
         >
           {featured && (
@@ -133,28 +169,33 @@ const ProductCard = ({
             </h3>
           </div>
 
-
-{
-  pathname.startsWith("/user-profile")  &&
-<div className="flex items-center justify-between px-4 py-2 border-y mb-2">
-            {!featured && localStorage.getItem("userId") === userId ? (
-              <Button
-                variant="text"
-                color="default"
-                size="sm"
-                className={`text-xs sm:text-sm font-medium bg-[#006C54] text-white ${
-                  isSameUser ? "hidden" : ""
-                }`}
-                onPress={() => setIsFeaturedModal(true)}
-              >
-                Boost Ad
-              </Button>
-            ) : (
-              <p>Sponsored Until <span className="font-bold">{sponsoredUntil}</span></p>
-            ) }
-          </div>
-}
-          
+          {pathname.includes(
+            `/user-profile/${localStorage.getItem("userId")}`
+          ) && (
+            <div className="flex items-center justify-between px-4 py-2 border-y mb-2">
+              {!featured && localStorage.getItem("userId") === userId ? (
+                <Button
+                  variant="text"
+                  color="default"
+                  size="sm"
+                  className={`text-xs sm:text-sm font-medium bg-[#006C54] text-white ${
+                    isSameUser ? "hidden" : ""
+                  }`}
+                  onPress={(e) => {
+                    e && e.stopPropagation && e.stopPropagation();
+                    setIsFeaturedModal(true);
+                  }}
+                >
+                  Boost Ad
+                </Button>
+              ) : (
+                <p>
+                  Sponsored Until{" "}
+                  <span className="font-bold">{sponsoredUntil}</span>
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="flex justify-between items-center px-4 pb-3 mt-auto">
             <div className="flex items-center text-gray-600 text-xs sm:text-sm">

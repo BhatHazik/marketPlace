@@ -598,6 +598,9 @@ const Messages = () => {
   
   const fileInputRef = useRef(null);
   
+  // Add this near the other state variables at the top of the component
+  const [selectedTab, setSelectedTab] = useState("all");
+  
   // Debug log for current user ID
   useEffect(() => {
     console.log('Current User ID from localStorage:', currentUserId);
@@ -925,10 +928,26 @@ const Messages = () => {
     };
   }, []);
 
-  // Filter chats based on search query
-  const filteredChats = chatData.filter(chat => 
-    chat.user?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Modify the filter chats section to also filter by tab selection
+  // Replace the existing filteredChats definition with this:
+  const filteredChats = chatData.filter(chat => {
+    // First apply search filter
+    const matchesSearch = chat.user?.name?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Get the status with fallback
+    const userStatus = (chat?.status || '').toLowerCase();
+    
+    // Then apply tab filter
+    if (selectedTab === "all") {
+      return matchesSearch;
+    } else if (selectedTab === "buying") {
+      return matchesSearch && userStatus === "buying";
+    } else if (selectedTab === "selling") {
+      return matchesSearch && userStatus === "selling";
+    }
+    
+    return matchesSearch; // Default fallback
+  });
 
   // Get the selected chat data
   const currentChat = chatData.find(chat => chat.id.toString() === selectedChat);
@@ -1590,6 +1609,14 @@ const Messages = () => {
         const response = await requestAPI('get', '/chats/list');
         if (response && !response.error) {
           setChatData(response);
+          console.log("chat list", response);
+          
+          // Debug log to check user statuses
+          console.log("Chat user statuses:", response.map(chat => ({
+            userId: chat.user?.id,
+            userName: chat.user?.name,
+            status: chat?.status || 'undefined'
+          })));
         } else {
           setChatsFetchError('Failed to load chats');
         }
@@ -2121,6 +2148,33 @@ const Messages = () => {
     setFullscreenMode(!fullscreenMode);
   };
  
+  // Function to format date separators
+  const formatMessageDate = (dateString) => {
+    if (!dateString) return '';
+    
+    const messageDate = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    // Reset time portion for accurate date comparison
+    const messageDateNoTime = new Date(messageDate.getFullYear(), messageDate.getMonth(), messageDate.getDate());
+    const todayNoTime = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const yesterdayNoTime = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+    
+    if (messageDateNoTime.getTime() === todayNoTime.getTime()) {
+      return 'Today';
+    } else if (messageDateNoTime.getTime() === yesterdayNoTime.getTime()) {
+      return 'Yesterday';
+    } else {
+      // For older dates, use Month Day format
+      return messageDate.toLocaleDateString([], {
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+  };
+
   // Function to render the chat view
   const renderChatContent = () => {
     if (loading) {
@@ -2243,9 +2297,18 @@ const Messages = () => {
                 <div className="ml-3">
                   <div className="flex items-center">
                     <p className="font-semibold">{currentChat.user.name}</p>
-                    <span className="ml-1 text-[10px] text-gray-500 bg-gray-100 rounded-full px-1.5 py-0.5">
+                    {/* <span className="ml-1 text-[10px] text-gray-500 bg-gray-100 rounded-full px-1.5 py-0.5">
                       #{currentChat.user.id || 'unknown'}
-                    </span>
+                    </span> */}
+                    {currentChat?.status && (
+                      <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full ${
+                        currentChat.status.toLowerCase() === 'buying' 
+                          ? 'bg-blue-100 text-blue-600' 
+                          : 'bg-green-100 text-green-600'
+                      }`}>
+                        {currentChat.status}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs flex items-center gap-1">
                     {/* Show typing indicator if user is typing */}
@@ -2323,194 +2386,221 @@ const Messages = () => {
         <ScrollShadow className="flex-grow min-h-0 overflow-auto overflow-x-hidden" visibility='top'>
           <div className="py-4 px-4 min-h-[calc(100%-120px)]">
             <div className="flex flex-col space-y-4">
-              {messages.map((message) => (
+              {(() => {
+                let lastMessageDate = null;
                 
-                <motion.div 
-                  key={message.id} 
-                  initial={message.isNew ? { opacity: 0, y: 20 } : false}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, ease: "easeOut" }}
-                  layout={false} /* Prevent layout animations when content changes */
-                  className={`flex ${message.sender === 'me' ? 'justify-end' : 'justify-start'}`}
-                >
-                
-                  <div className={`flex ${message.sender === 'me' ? 'flex-row-reverse' : 'flex-row'} items-end max-w-[75%]`}>
-                    {message.sender === 'them' && (
-                      <div className="flex-shrink-0">
-                        <Avatar src={message.avatar} className="h-8 w-8 mb-2 mr-2" />
-                      </div>
-                    )}
-                    <div 
-                      className={`rounded-2xl p-3 break-words overflow-hidden ${message.sender === 'me' 
-                        ? 'bg-[#006C54] text-white rounded-br-sm' 
-                        : 'bg-gray-200 text-gray-800 rounded-bl-sm'}`}
-                      style={{ maxWidth: '100%', wordBreak: 'break-word' }}
-                    >
-                      {message.senderName && message.sender === 'them' && (
-                        <p className="text-xs font-semibold mb-1 text-gray-700">{message.senderName}</p>
-                      )}
-                      {/* Only show text if it's not an empty string */}
-                      {message.text?.trim() && (
-  <p className="break-words whitespace-pre-wrap">{message.text}</p>
-)}
-
-                      
-                      {message.media && (
-                        <div className={message.text ? "mt-2" : ""}>
-                          {/* Special handling for pre-grouped image groups */}
-                          {message.isImageGroup ? (
-                            <ImageGallery 
-                              images={message.media} 
-                              onImageClick={openGallery} 
-                            />
-                          ) : (
-                            /* For regular messages, group media by type */
-                            (() => {
-                              const imageMedia = message.media.filter(item => item.type === 'image' || item.mediaType?.startsWith('image/'));
-                              const videoMedia = message.media.filter(item => item.type === 'video' || item.mediaType?.startsWith('video/'));
-                              const documentMedia = message.media.filter(item => 
-                                !item.type?.match(/image|video/) && 
-                                !item.mediaType?.match(/^(image|video)\//))
-                            ;
-                              return (
-                                <>
-                                  {/* Render images in a grid-like layout using our custom ImageGallery component */}
-                                  {imageMedia.length > 0 && (
-                                    <ImageGallery 
-                                      images={imageMedia} 
-                                      onImageClick={openGallery} 
-                                    />
-                                  )}
-                                
-                                {/* Render videos */}
-                                {videoMedia.length > 0 && (
-                                  <div className="flex flex-col gap-2 mb-2">
-                                    {videoMedia.map((item, index) => (
-                                      <div key={index} className="relative rounded-lg overflow-hidden bg-gray-800">
-                                        <video 
-                                          controls 
-                                          className="max-h-64 max-w-full"
-                                          poster={item.thumbnail}
-                                        >
-                                          <source src={item.url} type={item.mediaType || 'video/mp4'} />
-                                          Your browser does not support the video tag.
-                                        </video>
-                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                          <div className="bg-black bg-opacity-30 rounded-full p-3">
-                                            <FontAwesomeIcon icon={faPlay} className="text-white text-xl" />
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                                
-                                {/* Render documents/files */}
-                                {documentMedia.length > 0 && (
-                                  <div className="flex flex-col gap-2">
-                                    {documentMedia.map((item, index) => {
-                                      const isPdf = item.mediaType?.includes('pdf');
-                                      const icon = getMediaTypeIcon(item.mediaType || 'application/octet-stream');
-                                      
-                                      return (
-                                        <div 
-                                          key={index} 
-                                          className={`flex items-center p-2 rounded-lg ${message.sender === 'me' 
-                                            ? 'bg-[#006C54] bg-opacity-60' 
-                                            : 'bg-gray-100'}`}
-                                          onClick={() => window.open(item.url, '_blank')}
-                                        >
-                                          <div className={`p-2 rounded mr-2 ${message.sender === 'me' ? 'bg-white bg-opacity-20' : 'bg-white bg-opacity-80'}`}>
-                                            <FontAwesomeIcon 
-                                              icon={icon} 
-                                              className={`${message.sender === 'me' ? 'text-white' : 'text-gray-700'} text-lg`} 
-                                            />
-                                          </div>
-                                          <div className="flex-1 min-w-0 mr-2">
-                                            <p className="text-sm font-medium truncate">
-                                              {item.originalFileName || `File ${index + 1}`}
-                                            </p>
-                                            <p className="text-xs opacity-70">
-                                              {item.mediaType?.split('/')[1]?.toUpperCase() || 'Document'}
-                                            </p>
-                                          </div>
-                                          <FontAwesomeIcon 
-                                            icon={faDownload} 
-                                            className={`${message.sender === 'me' ? 'text-white' : 'text-gray-700'} text-sm opacity-70`} 
-                                          />
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-                                </>
-                              );
-                            })()
-                          )}
+                return messages.map((message, index) => {
+                  // Get message date from rawSentAt or fallback to timestamp
+                  const messageDate = message.rawSentAt 
+                    ? new Date(message.rawSentAt).toISOString().split('T')[0] 
+                    : new Date(message.timestamp).toISOString().split('T')[0];
+                  
+                  // Check if this message is from a different day than the previous one
+                  const showDateSeparator = lastMessageDate !== messageDate;
+                  
+                  // Update lastMessageDate for next iteration
+                  lastMessageDate = messageDate;
+                  
+                  return (
+                    <React.Fragment key={`${message.id}-container`}>
+                      {/* Show date separator if needed */}
+                      {showDateSeparator && (
+                        <div className="flex items-center justify-center my-6 px-2">
+                          <div className="flex-grow border-t border-gray-100"></div>
+                          <div className="mx-4 text-xs text-gray-400 font-medium bg-white px-3 py-1 rounded-full shadow-sm">
+                            {formatMessageDate(message.rawSentAt || message.timestamp)}
+                          </div>
+                          <div className="flex-grow border-t border-gray-100"></div>
                         </div>
                       )}
-                      <div className="flex items-center justify-end">
-                        <p className={`text-xs mt-1 ${message.sender === 'me' ? 'text-blue-100' : 'text-gray-500'}`}>
-                          {message.timestamp}
-                        </p>
-                        {message.sender === 'me' && (
-                          <span className="ml-1 text-xs">
-                            {message.failed ? (
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.3 }}
-        >
-          <FontAwesomeIcon icon={faCircleXmark} className="text-red-400" />
-        </motion.div>
-      ) : message.sending ? (
-        <motion.div
-          animate={{ opacity: [0.3, 1, 0.3] }}
-          transition={{ repeat: Infinity, duration: 1.5 }}
-        >
-          <FontAwesomeIcon icon={faCircle} className="text-blue-200" />
-        </motion.div>
-      ) : message.isSeen ? (
-        <motion.div
-          initial={{ opacity: 0, y: -2 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <FontAwesomeIcon icon={faCheckDouble} className="text-blue-500" />
-        </motion.div>
-      ) : message.isDelivered ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
-        >
-          <FontAwesomeIcon icon={faCheckDouble} className="text-blue-200" />
-        </motion.div>
-      ) : message.isSent ? (
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.3 }}
-        >
-          <FontAwesomeIcon icon={faCheck} className="text-blue-200" />
 
-        </motion.div>
-      ) : (
-        <motion.div
-          animate={{ opacity: [0.3, 1, 0.3] }}
-          transition={{ repeat: Infinity, duration: 1.5 }}
-        >
-          <FontAwesomeIcon icon={faCircle} className="text-blue-100" />
-
-        </motion.div>
-      )}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
+                      {/* Actual message (existing code) */}
+                      <motion.div 
+                        key={message.id} 
+                        initial={message.isNew ? { opacity: 0, y: 20 } : false}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, ease: "easeOut" }}
+                        layout={false} /* Prevent layout animations when content changes */
+                        className={`flex ${message.sender === 'me' ? 'justify-end' : 'justify-start'}`}
+                      >
+                      
+                        <div className={`flex ${message.sender === 'me' ? 'flex-row-reverse' : 'flex-row'} items-end max-w-[75%]`}>
+                          {message.sender === 'them' && (
+                            <div className="flex-shrink-0">
+                              <Avatar src={message.avatar} className="h-8 w-8 mb-2 mr-2" />
+                            </div>
+                          )}
+                          <div 
+                            className={`rounded-2xl p-3 break-words overflow-hidden ${message.sender === 'me' 
+                              ? 'bg-[#006C54] text-white rounded-br-sm' 
+                              : 'bg-gray-200 text-gray-800 rounded-bl-sm'}`}
+                            style={{ maxWidth: '100%', wordBreak: 'break-word' }}
+                          >
+                            {message.senderName && message.sender === 'them' && (
+                              <p className="text-xs font-semibold mb-1 text-gray-700">{message.senderName}</p>
+                            )}
+                            {/* Only show text if it's not an empty string */}
+                            {message.text?.trim() && (
+                              <p className="break-words whitespace-pre-wrap">{message.text}</p>
+                            )}
+                            
+                            {message.media && (
+                              <div className={message.text ? "mt-2" : ""}>
+                                {/* Special handling for pre-grouped image groups */}
+                                {message.isImageGroup ? (
+                                  <ImageGallery 
+                                    images={message.media} 
+                                    onImageClick={openGallery} 
+                                  />
+                                ) : (
+                                  /* For regular messages, group media by type */
+                                  (() => {
+                                    const imageMedia = message.media.filter(item => item.type === 'image' || item.mediaType?.startsWith('image/'));
+                                    const videoMedia = message.media.filter(item => item.type === 'video' || item.mediaType?.startsWith('video/'));
+                                    const documentMedia = message.media.filter(item => 
+                                      !item.type?.match(/image|video/) && 
+                                      !item.mediaType?.match(/^(image|video)\//))
+                                  ;
+                                    return (
+                                      <>
+                                        {/* Render images in a grid-like layout using our custom ImageGallery component */}
+                                        {imageMedia.length > 0 && (
+                                          <ImageGallery 
+                                            images={imageMedia} 
+                                            onImageClick={openGallery} 
+                                          />
+                                        )}
+                                      
+                                      {/* Render videos */}
+                                      {videoMedia.length > 0 && (
+                                        <div className="flex flex-col gap-2 mb-2">
+                                          {videoMedia.map((item, index) => (
+                                            <div key={index} className="relative rounded-lg overflow-hidden bg-gray-800">
+                                              <video 
+                                                controls 
+                                                className="max-h-64 max-w-full"
+                                                poster={item.thumbnail}
+                                              >
+                                                <source src={item.url} type={item.mediaType || 'video/mp4'} />
+                                                Your browser does not support the video tag.
+                                              </video>
+                                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                <div className="bg-black bg-opacity-30 rounded-full p-3">
+                                                  <FontAwesomeIcon icon={faPlay} className="text-white text-xl" />
+                                                </div>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      
+                                      {/* Render documents/files */}
+                                      {documentMedia.length > 0 && (
+                                        <div className="flex flex-col gap-2">
+                                          {documentMedia.map((item, index) => {
+                                            const isPdf = item.mediaType?.includes('pdf');
+                                            const icon = getMediaTypeIcon(item.mediaType || 'application/octet-stream');
+                                            
+                                            return (
+                                              <div 
+                                                key={index} 
+                                                className={`flex items-center p-2 rounded-lg ${message.sender === 'me' 
+                                                  ? 'bg-[#006C54] bg-opacity-60' 
+                                                  : 'bg-gray-100'}`}
+                                                onClick={() => window.open(item.url, '_blank')}
+                                              >
+                                                <div className={`p-2 rounded mr-2 ${message.sender === 'me' ? 'bg-white bg-opacity-20' : 'bg-white bg-opacity-80'}`}>
+                                                  <FontAwesomeIcon 
+                                                    icon={icon} 
+                                                    className={`${message.sender === 'me' ? 'text-white' : 'text-gray-700'} text-lg`} 
+                                                  />
+                                                </div>
+                                                <div className="flex-1 min-w-0 mr-2">
+                                                  <p className="text-sm font-medium truncate">
+                                                    {item.originalFileName || `File ${index + 1}`}
+                                                  </p>
+                                                  <p className="text-xs opacity-70">
+                                                    {item.mediaType?.split('/')[1]?.toUpperCase() || 'Document'}
+                                                  </p>
+                                                </div>
+                                                <FontAwesomeIcon 
+                                                  icon={faDownload} 
+                                                  className={`${message.sender === 'me' ? 'text-white' : 'text-gray-700'} text-sm opacity-70`} 
+                                                />
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                      </>
+                                    );
+                                  })()
+                                )}
+                              </div>
+                            )}
+                            <div className="flex items-center justify-end">
+                              <p className={`text-xs mt-1 ${message.sender === 'me' ? 'text-blue-100' : 'text-gray-500'}`}>
+                                {message.timestamp}
+                              </p>
+                              {message.sender === 'me' && (
+                                <span className="ml-1 text-xs">
+                                  {message.failed ? (
+                                    <motion.div
+                                      initial={{ scale: 0.8, opacity: 0 }}
+                                      animate={{ scale: 1, opacity: 1 }}
+                                      transition={{ duration: 0.3 }}
+                                    >
+                                      <FontAwesomeIcon icon={faCircleXmark} className="text-red-400" />
+                                    </motion.div>
+                                  ) : message.sending ? (
+                                    <motion.div
+                                      animate={{ opacity: [0.3, 1, 0.3] }}
+                                      transition={{ repeat: Infinity, duration: 1.5 }}
+                                    >
+                                      <FontAwesomeIcon icon={faCircle} className="text-blue-200" />
+                                    </motion.div>
+                                  ) : message.isSeen ? (
+                                    <motion.div
+                                      initial={{ opacity: 0, y: -2 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      transition={{ duration: 0.3 }}
+                                    >
+                                      <FontAwesomeIcon icon={faCheckDouble} className="text-blue-500" />
+                                    </motion.div>
+                                  ) : message.isDelivered ? (
+                                    <motion.div
+                                      initial={{ opacity: 0 }}
+                                      animate={{ opacity: 1 }}
+                                      transition={{ duration: 0.3 }}
+                                    >
+                                      <FontAwesomeIcon icon={faCheckDouble} className="text-blue-200" />
+                                    </motion.div>
+                                  ) : message.isSent ? (
+                                    <motion.div
+                                      initial={{ scale: 0.8, opacity: 0 }}
+                                      animate={{ scale: 1, opacity: 1 }}
+                                      transition={{ duration: 0.3 }}
+                                    >
+                                      <FontAwesomeIcon icon={faCheck} className="text-blue-200" />
+                                    </motion.div>
+                                  ) : (
+                                    <motion.div
+                                      animate={{ opacity: [0.3, 1, 0.3] }}
+                                      transition={{ repeat: Infinity, duration: 1.5 }}
+                                    >
+                                      <FontAwesomeIcon icon={faCircle} className="text-blue-100" />
+                                    </motion.div>
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    </React.Fragment>
+                  );
+                });
+              })()}
               {/* Invisible element to scroll to */}
               <div ref={messagesEndRef} />
             </div>
@@ -2944,16 +3034,21 @@ const Messages = () => {
           >
             <div className="p-4">
               <h1 className="text-2xl font-bold mb-4">Messages</h1>
-              <Tabs aria-label="Chat tabs" className="mb-4 text-white"
-              color="primary" 
-              variant="solid"
-              classNames={{
-                tab: "data-[selected=true]:text-[#006C54] data-[selected=true]:border-[#006C54]",
-                cursor: "bg-[#006C54]"
-              }}>
+              <Tabs 
+                aria-label="Chat tabs" 
+                className="mb-4 text-white"
+                color="primary" 
+                variant="solid"
+                selectedKey={selectedTab}
+                onSelectionChange={setSelectedTab}
+                classNames={{
+                  tab: "data-[selected=true]:text-[#006C54] data-[selected=true]:border-[#006C54]",
+                  cursor: "bg-[#006C54]"
+                }}
+              >
                 <Tab key="all" title="All" />
-                <Tab key="unread" title="Buying" />
-                <Tab key="archived" title="Selling" />
+                <Tab key="buying" title="Buying" />
+                <Tab key="selling" title="Selling" />
               </Tabs>
               
               <Input
@@ -2986,8 +3081,20 @@ const Messages = () => {
                     </Button>
                   </div>
                 ) : filteredChats.length === 0 ? (
-                  <div className="flex justify-center items-center h-full">
-                    <p className="text-gray-500">No chats found</p>
+                  <div className="flex justify-center items-center h-full flex-col">
+                    {selectedTab === "all" ? (
+                      <p className="text-gray-500">No chats found</p>
+                    ) : selectedTab === "buying" ? (
+                      <>
+                        <p className="text-gray-500 font-medium">No buying chats found</p>
+                        <p className="text-gray-400 text-sm">Chats where you're the buyer will appear here</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-gray-500 font-medium">No selling chats found</p>
+                        <p className="text-gray-400 text-sm">Chats where you're the seller will appear here</p>
+                      </>
+                    )}
                   </div>
                 ) : (
                   filteredChats.map((chat) => (
@@ -3008,9 +3115,18 @@ const Messages = () => {
                           <div>
                             <div className="flex items-center">
                               <p className="font-semibold truncate">{chat.user?.name || 'Unknown User'}</p>
-                              <span className="ml-1 text-[10px] text-gray-500 bg-gray-100 rounded-full px-1.5 py-0.5">
+                              {/* <span className="ml-1 text-[10px] text-gray-500 bg-gray-100 rounded-full px-1.5 py-0.5">
                                 #{chat.user?.id || 'unknown'}
-                              </span>
+                              </span> */}
+                              {chat.user?.status && (
+                                <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full ${
+                                  chat.status.toLowerCase() === 'buying' 
+                                    ? 'bg-blue-100 text-blue-600' 
+                                    : 'bg-green-100 text-green-600'
+                                }`}>
+                                  {chat.status}
+                                </span>
+                              )}
                             </div>
                             {!chat.user?.isOnline && chat.user?.lastSeen && (
                               <p className="text-xs text-gray-500 -mt-0.5">

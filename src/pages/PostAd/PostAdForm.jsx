@@ -15,11 +15,13 @@ import {
   ModalBody,
   ModalFooter,
   Spinner,
+  Avatar,
+  Chip,
 } from "@heroui/react";
 import "./PostAd.css";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCamera, faInfoCircle } from "@fortawesome/free-solid-svg-icons";
+import { faCamera, faCross, faInfoCircle, faXmark } from "@fortawesome/free-solid-svg-icons";
 import UseAPI from "../../hooks/UseAPI";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import LoadingModal from "../../Modals/LoadingModal";
@@ -27,6 +29,7 @@ import FeaturedModal from "../../Modals/FeaturedModal";
 import axios from "axios";
 import BASE_URL from "../../config/url.config";
 import { toast } from "react-toastify";
+import ActivePlansModal from "../../Modals/ActivePlansModal";
 
 const PostAdForm = () => {
   const { requestAPI, loading: apiLoading, error } = UseAPI();
@@ -40,13 +43,16 @@ const PostAdForm = () => {
     city: "",
   });
   const [attributes, setAttributes] = useState([]);
-  const [countryData, setCountryData] = useState({});
+  const [countryData, setCountryData] = useState([]);
   const [stateData, setStateData] = useState([]);
   const [currencies, setCurrencies] = useState([]);
   const [selectedCurrency, setSelectedCurrency] = useState("");
   const [countryId, setCountryId] = useState(null);
   const [countryName, setCountryName] = useState(null);
   const [imagesError, setImagesError] = useState(false);
+  const [createdListing, setCreatedListing] = useState({});
+  const [attributesLoading, setAttributesLoading] = useState(true);
+  const [loadingCountries, setLoadingCountries] = useState(true);
 
   // State for dynamic attribute values
   const [dynamicValues, setDynamicValues] = useState({});
@@ -70,6 +76,7 @@ const PostAdForm = () => {
   const { subcat, category } = state || {};
 
   const getCountries = async () => {
+    setLoadingCountries(true);
     try {
       const response = await requestAPI("GET", "/location/countries", null, {
         showErrorToast: false,
@@ -77,17 +84,20 @@ const PostAdForm = () => {
 
       if (response.status === "success") {
         console.log("Countries response:", response);
-
         const rawData = response.data || [];
+        // Log the first country to debug
+        if (rawData.length > 0) {
+          console.log("First country example:", rawData[0]);
+        }
+        setCountryData(rawData);
 
-        // Deduplicate currency codes
+        // Deduplicate currency codes for backward compatibility
         const uniqueMap = new Map();
-
         rawData.forEach((country) => {
           const code = country.currency;
           if (code && !uniqueMap.has(code)) {
             uniqueMap.set(code, {
-              id: country.id, // Add country id
+              id: country.id,
               name: country.name,
               code: country.currency,
               symbol: country.currency_symbol || "",
@@ -97,16 +107,19 @@ const PostAdForm = () => {
         });
 
         const uniqueCurrencies = Array.from(uniqueMap.values());
-
         setCurrencies(uniqueCurrencies);
       } else {
+        setCountryData([]);
         setCurrencies([]);
         setSelectedCurrency("USD");
       }
     } catch (error) {
       console.error("Error fetching countries:", error);
+      setCountryData([]);
       setCurrencies([]);
       setSelectedCurrency("USD");
+    } finally {
+      setLoadingCountries(false);
     }
   };
 
@@ -149,6 +162,30 @@ const PostAdForm = () => {
       ...formData,
       [name]: value,
     });
+  };
+
+  // Handle country selection
+  const handleCountryChange = (selectedCountryId) => {
+    const selectedCountry = countryData.find(
+      (country) => country.id.toString() === selectedCountryId
+    );
+    
+    if (selectedCountry) {
+      console.log("Selected Country:", selectedCountry);
+      setCountryId(selectedCountry.id);
+      setCountryName(selectedCountry.name);
+      setSelectedCurrency(selectedCountry.currency);
+      
+      // Reset state and city
+      setFormData({
+        ...formData,
+        state: "",
+        city: "",
+      });
+      
+      // Fetch states for the selected country
+      getStates(selectedCountry.id);
+    }
   };
 
   // Handle dynamic input changes
@@ -346,7 +383,8 @@ const PostAdForm = () => {
       if (response.data.status === "success") {
         console.log("Listing created successfully:", response.data);
         setCreatedAdId(response.data.data?.id || null);
-
+        setCreatedListing(response.data.product);
+        console.log(response.data.product.id)
         // Reset all form data
         resetFormData();
 
@@ -530,39 +568,50 @@ const PostAdForm = () => {
 
   useEffect(() => {
     const getAttributes = async () => {
-      const response = await requestAPI(
-        "GET",
-        `/categories/subcategory/${subcat.id}/attributes`,
-        null,
-        { showErrorToast: false }
-      );
-      if (response.status === "success") {
-        setAttributes(response.data);
-        setCountryData(response.countryData);
-        setStateData(response.stateData || []);
-        // Initialize dynamic values with empty defaults
-        const initialValues = {};
-        response.data.forEach((attr) => {
-          if (attr.type.toLowerCase() === "checkbox") {
-            initialValues[attr.id] = [];
-          } else if (
-            attr.type.toLowerCase() === "radio" &&
-            attr.options &&
-            attr.options.length > 0
-          ) {
-            // Set first radio option as default
-            initialValues[attr.id] = attr.options[0];
-          } else {
-            initialValues[attr.id] = "";
-          }
-        });
+      setAttributesLoading(true);
+      try {
+        const response = await requestAPI(
+          "GET",
+          `/categories/subcategory/${subcat.id}/attributes`,
+          null,
+          { showErrorToast: false }
+        );
+        if (response.status === "success") {
+          setAttributes(response.data);
+          // Initialize dynamic values with empty defaults
+          const initialValues = {};
+          response.data.forEach((attr) => {
+            if (attr.type.toLowerCase() === "checkbox") {
+              initialValues[attr.id] = [];
+            } else if (
+              attr.type.toLowerCase() === "radio" &&
+              attr.options &&
+              attr.options.length > 0
+            ) {
+              // Set first radio option as default
+              initialValues[attr.id] = attr.options[0];
+            } else {
+              initialValues[attr.id] = "";
+            }
+          });
 
-        setDynamicValues(initialValues);
-        console.log(response);
+          setDynamicValues(initialValues);
+          console.log(response);
+        }
+      } catch (error) {
+        console.error("Error fetching attributes:", error);
+      } finally {
+        setAttributesLoading(false);
       }
     };
     getAttributes();
   }, []);
+
+  // Helper function to get country flag URL
+  const getCountryFlagUrl = (countryCode) => {
+    // Use country code to fetch flag from a flag API
+    return `https://flagcdn.com/w20/${countryCode.toLowerCase()}.png`;
+  };
 
   return (
     <div className="bg-white min-h-screen pb-16">
@@ -587,15 +636,16 @@ const PostAdForm = () => {
         className="p-4 max-w-3xl mx-auto border border-gray-200 rounded-md"
       >
         {/* Dynamic attributes */}
-        {attributes.length > 0 && (
+        {(attributes.length > 0 || attributesLoading) && (
           <div className="mb-4">
             <h2 className="text-xl font-semibold mb-3 border-b pb-2">
               Include some details
             </h2>
 
             {/* Render dynamic form fields based on attributes from API */}
-            {apiLoading ? (
-              <div className="flex justify-center py-4">
+            {attributesLoading ? (
+              <div className="flex justify-center items-center py-8 flex-col">
+                <Spinner size="lg" color="success" className="mb-4" />
                 <p>Loading attributes...</p>
               </div>
             ) : (
@@ -620,52 +670,16 @@ const PostAdForm = () => {
               name="price"
               value={formData.price}
               onChange={handleInputChange}
-              // startContent={
-              //   <div className="pointer-events-none flex items-center">
-              //     <span className="text-default-400 text-small">$</span>
-              //   </div>
-              // }
-              endContent={
-                <div className="flex items-center">
-                  <label className="sr-only" htmlFor="currency">
-                    Currency
-                  </label>
-                  <select
-                    className="outline-none border-0 bg-transparent text-default-400 text-small"
-                    id="currency"
-                    name="currency"
-                    value={selectedCurrency}
-                    onChange={(e) => {
-                      const selectedCode = e.target.value;
-                      const selectedCurrency = currencies.find(
-                        (currency) => currency.code === selectedCode
-                      );
-                      setSelectedCurrency(selectedCode);
-                      console.log("Selected Currency:", selectedCurrency);
-                      // Now you have access to the id of the selected currency
-                      console.log(
-                        "Selected Currency ID:",
-                        selectedCurrency?.id
-                      );
-                      setCountryId(selectedCurrency?.id);
-                      setCountryName(selectedCurrency?.name);
-
-                      handleInputChange(e);
-                    }}
-                  >
-                    <option value="">Select</option>
-                    {currencies.map((currency) => (
-                      <option key={currency.code} value={currency.code}>
-                        {currency.code} {currency.symbol}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              }
-              // startContent={<div className="pointer-events-none">{(countryData && countryData[0]?.currency_symbol) || "₹"}</div>}
               variant="bordered"
               isRequired={true}
               className="w-full"
+              startContent={
+                <div className="pointer-events-none flex items-center">
+                  <span className="text-default-400 text-small">
+                    {countryData?.find(c => c.id === countryId)?.currency_symbol || "$"}
+                  </span>
+                </div>
+              }
             />
           </div>
 
@@ -687,11 +701,11 @@ const PostAdForm = () => {
         {/* Images */}
         <div className="mb-8">
           {imagesError ? (
-            <h2 className="text-lg font-semibold text-danger mb-3 border-b pb-2">
+            <h2 id="imageErr" className="text-lg font-semibold text-danger mb-3 border-b pb-2">
               Add photos of Your Item *
             </h2>
           ) : (
-            <h2 className="text-lg font-semibold mb-3 border-b pb-2">
+            <h2 id="imageErr" className="text-lg font-semibold mb-3 border-b pb-2">
               Add photos of Your Item
             </h2>
           )}
@@ -708,13 +722,15 @@ const PostAdForm = () => {
                   alt={`Preview ${index}`}
                   className="h-full w-full object-contain"
                 />
-                <button
+                <Button
                   type="button"
-                  onClick={() => removeImage(index)}
+                  size="sm"
+                  isIconOnly
+                  onPress={() => removeImage(index)}
                   className="absolute top-1 right-1 bg-white rounded-full p-1 shadow-md"
                 >
-                  ✕
-                </button>
+                  <FontAwesomeIcon icon={faXmark}/>
+                </Button>
               </div>
             ))}
 
@@ -776,12 +792,56 @@ const PostAdForm = () => {
               minRows={3}
             />
           </div>
+          
+          {/* Country Selection */}
+          <div className="mb-4">
+            <Select 
+              label="Country"
+              placeholder={loadingCountries ? "Loading countries..." : "Select country"}
+              onChange={(e) => handleCountryChange(e.target.value)}
+              variant="bordered"
+              isRequired={true}
+              className="w-full"
+              isDisabled={loadingCountries}
+              startContent={
+                countryId ? (
+                  <Avatar
+                    alt="Country flag"
+                    className="w-6 h-6"
+                    src={`https://flagcdn.com/w40/${countryData?.find(c => c.id === countryId)?.iso2?.toLowerCase()}.png`}
+                  />
+                ) : null
+              }
+            >
+              {countryData?.length > 0 ? (
+                countryData.map((country) => (
+                  <SelectItem 
+                    key={country.id} 
+                    value={country.id.toSt}
+                    startContent={
+                      <Avatar
+                        alt={country.name}
+                        className="w-6 h-6"
+                        src={`https://flagcdn.com/w40/${country.iso2?.toLowerCase()}.png`}
+                      />
+                    }
+                  >
+                    {country.name}
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem key="no-countries" value="none" isDisabled>
+                  No countries available
+                </SelectItem>
+              )}
+            </Select>
+          </div>
 
           {/* Location */}
           <div className="mb-4">
             <Select
               label="State"
-              placeholder="Select state"
+              placeholder={!countryId ? `Select country first` : stateData.length === 0 ? "No states available" : "Select State"}
               onChange={(e) => handleStateChange(e.target.value)}
               variant="bordered"
               isRequired={true}
@@ -789,10 +849,10 @@ const PostAdForm = () => {
                 if (!formData.state) {
                   return "Please select a state";
                 }
-
                 return null;
               }}
               className="w-full"
+              isDisabled={!countryId || stateData.length === 0}
             >
               {stateData.map((state) => (
                 <SelectItem key={state.id} value={state.id.toString()}>
@@ -808,13 +868,13 @@ const PostAdForm = () => {
               <Select
                 label="City"
                 placeholder={
-                  loadingCities ? "Loading cities..." : "Select city"
+                  loadingCities ? "Loading cities..." : cityData.length === 0 ? "No cities available" : "Select city"
                 }
                 onChange={(e) => handleCityChange(e.target.value)}
                 variant="bordered"
                 isRequired={true}
                 className="w-full"
-                isDisabled={loadingCities}
+                isDisabled={loadingCities || cityData.length === 0}
               >
                 {cityData?.map((city) => (
                   <SelectItem key={city.id} value={city.id.toString()}>
@@ -832,14 +892,16 @@ const PostAdForm = () => {
             type="submit"
             className="bg-[#006C54] text-white font-semibold hover:bg-[#005743] px-8"
             size="lg"
+            disabled={attributesLoading || apiLoading || loadingCountries}
           >
             Post Your Ad
           </Button>
         </div>
       </form>
 
-      <FeaturedModal
+      <ActivePlansModal
         isOpen={isFeaturedModal}
+        productId={createdListing?.id}
         onClose={() => setIsFeaturedModal(false)}
       />
 

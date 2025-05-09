@@ -181,7 +181,7 @@ const FeaturedModal = ({ isOpen, onClose, productId }) => {
       if (!orderData) return;
 
       const options = {
-        key: "rzp_test_c4VrwehUSLESCP", // Replace with your actual Razorpay key
+        key: import.meta.env.VITE_RAZORPAY, // Replace with your actual Razorpay key
         amount: orderData.amount, // Razorpay expects amount in paise
         currency: orderData.currency,
         name: "OLX Featured Ad",

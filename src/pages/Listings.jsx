@@ -28,6 +28,7 @@ import {
   faLocationDot,
   faChevronDown,
   faBars,
+  faClock,
 } from "@fortawesome/free-solid-svg-icons";
 import ProductCard from "../components/ProductCard";
 import loginBackground from "../assets/loginBackground.png";
@@ -62,6 +63,17 @@ const Listings = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [products, setProducts] = useState([]);
   const [query, setQuery] = useState("");
+  const [selectedAdPostedTime, setSelectedAdPostedTime] = useState("this_week");
+
+  // Ad posted time options
+  const adPostedTimeOptions = [
+    { label: "Today", value: "today" },
+    { label: "This Week", value: "this_week" },
+    { label: "This Month", value: "this_month" },
+    { label: "This Year", value: "this_year" },
+    { label: "2 years", value: "2_year" },
+    { label: "3 years", value: "3_year" },
+  ];
 
   const { search, category, catId } = useParams();
   // at the top of Listings.jsx
@@ -308,7 +320,17 @@ const Listings = () => {
     // Build query params
     let queryParams = `${searchTerm ? "&" : "?"}filter=price_between_${
       priceRange[0]
-    }_to_${priceRange[1]}&page=${currentPage}&limit=9`;
+    }_to_${priceRange[1]}`;
+    
+    // Add ad posted time filter if selected
+    if (selectedAdPostedTime) {
+      queryParams += `,ads_posted_${selectedAdPostedTime}`;
+    }
+    
+    // Add pagination
+    queryParams += `&page=${currentPage}&limit=9`;
+    
+    // Add other filters
     if (query && onlyInCategory) queryParams += `,${query}`;
 
     url += queryParams;
@@ -323,7 +345,6 @@ const Listings = () => {
 
     console.log(selectedLocation);
     console.log(selectedSubcategory);
-    // console.log(`/listings/search/${selectedLocation}${selectedCity && `,${selectedCity}`}${selectedSubcategory && `/${selectedSubcategory}`}?filter=price_between_${priceRange[0]}_to_${priceRange[1]}${query && `,${query}`}`);
     console.log(url);
   };
 
@@ -340,6 +361,7 @@ const Listings = () => {
     searchTerm,
     onlyInCategory,
     currentPage,
+    selectedAdPostedTime,
   ]);
 
   useEffect(() => {
@@ -501,6 +523,45 @@ const Listings = () => {
               </div>
             </div>
 
+            {/* Ad Posted Time Accordion */}
+            <div className="mb-6">
+              <h3 className="font-semibold text-lg mb-3 text-gray-800">
+                Ads Posted Time
+              </h3>
+              <Accordion
+                selectionMode="single"
+                defaultExpandedKeys={["adPostedTime"]}
+                variant="splitted"
+                className="w-full"
+              >
+                <AccordionItem
+                  key="adPostedTime"
+                  title="Select Time Period"
+                  startContent={
+                    <FontAwesomeIcon
+                      icon={faClock}
+                      className="text-gray-500"
+                    />
+                  }
+                >
+                  <ScrollShadow className="max-h-36 overflow-y-auto category-scrollbar">
+                    <RadioGroup
+                      value={selectedAdPostedTime}
+                      onValueChange={(value) => setSelectedAdPostedTime(value)}
+                      className="gap-1"
+                      orientation="vertical"
+                    >
+                      {adPostedTimeOptions.map((option) => (
+                        <Radio key={option.value} value={option.value}>
+                          {option.label}
+                        </Radio>
+                      ))}
+                    </RadioGroup>
+                  </ScrollShadow>
+                </AccordionItem>
+              </Accordion>
+            </div>
+
             {/* Locations Accordion */}
             <div className="mb-0">
               <h3 className="font-semibold text-lg mb-3 text-gray-800">
@@ -640,6 +701,45 @@ const Listings = () => {
                   <span className="text-sm text-gray-700">₹1,000,000+</span>
                 </div>
               </div>
+            </div>
+
+            {/* Ad Posted Time Accordion */}
+            <div className="mb-6">
+              <h3 className="font-semibold text-lg mb-3 text-gray-800">
+                Ad Posted Time
+              </h3>
+              <Accordion
+                selectionMode="single"
+                defaultExpandedKeys={["adPostedTime"]}
+                variant="splitted"
+                className="w-full"
+              >
+                <AccordionItem
+                  key="adPostedTime"
+                  title="Select Time Period"
+                  startContent={
+                    <FontAwesomeIcon
+                      icon={faClock}
+                      className="text-gray-500"
+                    />
+                  }
+                >
+                  <ScrollShadow className="max-h-36 overflow-y-auto category-scrollbar">
+                    <RadioGroup
+                      value={selectedAdPostedTime}
+                      onValueChange={(value) => setSelectedAdPostedTime(value)}
+                      className="gap-1"
+                      orientation="vertical"
+                    >
+                      {adPostedTimeOptions.map((option) => (
+                        <Radio key={option.value} value={option.value}>
+                          {option.label}
+                        </Radio>
+                      ))}
+                    </RadioGroup>
+                  </ScrollShadow>
+                </AccordionItem>
+              </Accordion>
             </div>
 
             {/* Locations Accordion */}

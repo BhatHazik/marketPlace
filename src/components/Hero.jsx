@@ -5,7 +5,7 @@ import SearchBar from "./SearchBar";
 import { Link } from "react-router-dom";
 import loginBackground from "../assets/loginBackground.png";
 
-const Hero = ({ onLocationChange, onLocationIdChange }) => {
+const Hero = ({ onLocationChange, onLocationIdChange, detectedLocation }) => {
   return (
     <div className="relative">
       {/* Background Image with Overlay */}
@@ -49,6 +49,7 @@ const Hero = ({ onLocationChange, onLocationIdChange }) => {
             containerClassName="justify-center w-full"
             onLocationChange={onLocationChange}
             onLocationIdChange={onLocationIdChange}
+            detectedLocation={detectedLocation}
           />
         </div>
       </div>

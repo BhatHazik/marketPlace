@@ -26,6 +26,7 @@ import TermsAndConditions from "./pages/TermsAndConditions";
 import Privacy from "./pages/Privacy";
 import Help from "./pages/Help";
 import Settings from "./pages/Settings";
+import Wishlist from "./pages/Wishlist";
 
 import { SocketService } from './services/socket.service';
 
@@ -133,6 +134,7 @@ export default function App() {
             <Route path="/listings/search/:search?" element={<Listings />} />
             <Route path="/listings/:search?/:category?/:catId?" element={<Listings />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/wishlist" element={<Wishlist />} />
             {/* Catch-all route for 404 page */}
             <Route path="*" element={<NotFound />} />
           </Routes>
